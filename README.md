@@ -7,14 +7,14 @@
  (___/(____)(__\_)\___/(____)\___/
 
   .-""""""-.
- .'           '.
- /    O       O   \
- :       \__/      :
- |     ________    |
- :   /         \   :
- \ | ~~~~~~~~ | /
-  '.\         /.'
-  '-......-'
+ .'            '.
+ /    O       O    \
+ :       \__/       :
+ |     ________     |
+ :   /        \   :
+ \  | ~~~~~~~~ |  /
+ '.\          /.'
+ '-......-'
 ```
 
 **Your AI teammate that reviews the feature cards with knowledge about your codebase and initiates the PR.**
@@ -99,8 +99,9 @@ Once the server is created, Hetzner shows you the IP address.
 ssh root@YOUR_SERVER_IP
 ```
 
-### 3. Initial setup and install Claude
 
+### 3. Initial setup and install Claude
+At this point you can ask Claude in your local machine to ssh into the Hatzner VPS and continue the setup, or do this yourself manually.
 ```bash
 # Create a deploy user (don't run Sergio as root)
 adduser deploy
@@ -120,7 +121,7 @@ npm install -g @anthropic-ai/claude-code
 su - deploy
 ```
 
-From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below.
+From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below. Make sure that Claude gets access 
 
 From here, follow the [Getting Started](#getting-started) section below.
 
