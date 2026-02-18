@@ -21,7 +21,7 @@
 
 Write a task. Drop it in a list. Get a PR.
 
-[Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration) · [Customizing Prompts](#customizing-prompts)
+[Starting from Scratch](#starting-from-scratch) · [Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
 </div>
 
@@ -66,6 +66,61 @@ Development pipeline:
 The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
 
 **Feedback loop:** If a plan isn't right, add a comment explaining what to change and move the card back. Sergio re-reads the card — including your feedback — and generates an updated plan.
+
+---
+
+## Starting from Scratch
+
+Don't have a server yet? Here's how to go from zero to a running Sergio instance for under $5/month.
+
+### 1. Get a cheap VM
+
+Go to [Hetzner Cloud](https://www.hetzner.com/cloud/) (or any VPS provider — DigitalOcean, Vultr, etc.) and create a server:
+
+- **OS:** Ubuntu 24.04
+- **Type:** CX22 (2 vCPU, 4 GB RAM) is plenty — Sergio is lightweight, Claude does the heavy lifting via API
+- **Location:** Wherever is closest to you
+- **SSH key:** Add your public key during creation (recommended over password)
+
+If you don't have an SSH key yet:
+
+```bash
+# On your local machine
+ssh-keygen -t ed25519 -C "your@email.com"
+cat ~/.ssh/id_ed25519.pub
+# Copy this output and paste it into Hetzner's SSH key field
+```
+
+### 2. SSH into your server
+
+Once the server is created, Hetzner shows you the IP address.
+
+```bash
+ssh root@YOUR_SERVER_IP
+```
+
+### 3. Create a deploy user (don't run Sergio as root)
+
+```bash
+adduser deploy
+usermod -aG sudo deploy
+# Copy your SSH key to the new user
+mkdir -p /home/deploy/.ssh
+cp ~/.ssh/authorized_keys /home/deploy/.ssh/
+chown -R deploy:deploy /home/deploy/.ssh
+
+# Switch to the deploy user
+su - deploy
+```
+
+### 4. Install Node.js
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs git
+```
+
+From here, follow the [Getting Started](#getting-started) section below.
 
 ---
 
