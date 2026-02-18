@@ -27,14 +27,14 @@ You have a team where a Product Manager writes features with limited knowledge a
 
 ---
 
-Sergio is a self-hosted bot that connects your **Trello board** to **Claude AI**. Write a task card, drop it in the right list, and Sergio generates an implementation plan, writes the code, runs your tests, and opens a pull request — without you touching the terminal.
+Sergio is a self-hosted bot that connects your **Trello board** to **Claude AI**. Write a task card, drop it in the right list, and Sergio reviews it — producing an implementation plan, asking clarifying questions, or requesting card improvements — then writes the code, runs your tests, and opens a pull request.
 
 It runs on a single VM, polls your board every 60 seconds, and uses sandboxed Claude CLI sessions to do the actual work. No external SaaS, no vendor lock-in, fully open source.
 
 ### What it does
 
-1. **Plans** — Reads your Trello card and generates a detailed implementation plan using Claude
-2. **Reviews** — Posts the plan as a card comment and moves it for human approval
+1. **Reviews** — Reads your Trello card, explores the codebase, and responds with an implementation plan, clarifying questions, or revision requests
+2. **Posts** — Posts the response as a card comment and moves it for human review
 3. **Implements** — Once approved, writes the code in an isolated git worktree
 4. **Tests** — Runs your test suite automatically
 5. **Ships** — Commits, pushes to a feature branch, and opens a pull request
@@ -52,8 +52,8 @@ Planning pipeline:
 
   TODO --> Task Revision --> Reviewing --> TODO Reviewed
               Sergio            Sergio         You review
-              generates         posts the      the plan
-              a plan            plan here       and approve
+              reviews the       posts its      the response
+              card & codebase   response here  and decide
 
 Development pipeline:
 
@@ -65,7 +65,14 @@ Development pipeline:
 
 The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
 
-**Feedback loop:** If a plan isn't right, add a comment explaining what to change and move the card back. Sergio re-reads the card — including your feedback — and generates an updated plan.
+**Planning has three outcomes:** When Sergio reviews a card, it chooses one of:
+1. **Implementation plan** — if the card is clear and the codebase is understood
+2. **Clarifying questions** — if the card is ambiguous or missing info
+3. **Revision requests** — if the card has contradictions or infeasible requirements
+
+The prompt logic for this lives in `prompts/revision.md`. Sergio always posts its response as a free-form markdown comment on the card.
+
+**Feedback loop:** If the response isn't right, add a comment explaining what to change and move the card back to Task Revision. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly.
 
 ---
 
@@ -226,7 +233,7 @@ Sergio's Claude behavior is driven by two editable Markdown templates:
 
 | File | Used for |
 |------|----------|
-| `prompts/revision.md` | Planning — Claude generates implementation plans |
+| `prompts/revision.md` | Planning — Claude reviews cards and responds with a plan, questions, or revision requests |
 | `prompts/development.md` | Development — Claude writes code |
 
 ### Placeholders
@@ -322,9 +329,9 @@ Yes. During setup, choose not to create a new board and provide your board and l
 </details>
 
 <details>
-<summary><strong>What if Claude's plan is wrong?</strong></summary>
+<summary><strong>What if Sergio's response isn't right?</strong></summary>
 
-Add a comment to the card explaining what needs to change, then move it back to the task revision list. Sergio detects it, re-reads the card including your feedback, and generates an updated plan.
+Add a comment to the card explaining what needs to change, then move it back to the task revision list. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly. If it asked questions and you answered them, it will incorporate your answers into a plan. If it produced a plan and you gave feedback, it will revise the plan.
 </details>
 
 <details>
