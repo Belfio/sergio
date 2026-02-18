@@ -19,6 +19,7 @@ function sanitizeFilename(name: string): string {
 
 interface ProcessContext {
   sourceListId: string;
+  reviewingListId: string;
   destListId: string;
 }
 
@@ -70,13 +71,17 @@ export async function processCard(
 ): Promise<void> {
   console.log(`Processing card: ${card.name} (${card.id})`);
 
-  // 1. Fetch comments + attachments
+  // 1. Move card to reviewing list immediately
+  await moveCard(card.id, ctx.reviewingListId);
+  console.log(`  Moved to reviewing list`);
+
+  // 2. Fetch comments + attachments
   const [comments, attachments] = await Promise.all([
     getCardActions(card.id),
     getCardAttachments(card.id),
   ]);
 
-  // 2. Write enriched .txt file
+  // 3. Write enriched .txt file
   const content = formatCardData(card, comments, attachments, ctx);
 
   await fs.mkdir(config.logsDir, { recursive: true });
@@ -85,19 +90,19 @@ export async function processCard(
   await fs.writeFile(filepath, content);
   console.log(`  Wrote log: ${filename}`);
 
-  // 3. Run Claude to generate implementation plan
+  // 4. Run Claude to generate implementation plan
   console.log(`  Running ${config.botName} against ${config.repoDir}...`);
   const plan = await runClaude(filepath, config.repoDir);
   console.log(`  ${config.botName} produced plan (${plan.length} chars)`);
 
-  // 4. Post plan as comment on the Trello card
+  // 5. Post plan as comment on the Trello card
   await addComment(card.id, plan);
   console.log(`  Posted plan as comment on card`);
 
-  // 5. Move card to reviewing list
+  // 6. Move card to reviewed list
   await moveCard(card.id, ctx.destListId);
-  console.log(`  Moved to reviewing list`);
+  console.log(`  Moved to reviewed list`);
 
-  // 6. Mark as processed
+  // 7. Mark as processed
   await markCardProcessed(card.id);
 }

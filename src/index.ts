@@ -5,7 +5,7 @@ import { loadDevProcessedCards, isDevCardProcessed, unmarkDevCardProcessed } fro
 import { processCard } from "./processor.js";
 import { processDevCard } from "./dev-processor.js";
 
-async function poll(sourceListId: string, destListId: string) {
+async function poll(sourceListId: string, reviewingListId: string, destListId: string) {
   try {
     const cards = await getListCards(sourceListId);
 
@@ -27,7 +27,7 @@ async function poll(sourceListId: string, destListId: string) {
 
     for (const card of newCards) {
       try {
-        await processCard(card, { sourceListId, destListId });
+        await processCard(card, { sourceListId, reviewingListId, destListId });
       } catch (err) {
         console.error(`Error processing card ${card.id} (${card.name}):`, err);
       }
@@ -99,12 +99,12 @@ async function main() {
   console.log(`Polling every ${config.pollIntervalMs / 1000}s\n`);
 
   await Promise.all([
-    poll(lists.taskRevision, lists.reviewing),
+    poll(lists.taskRevision, lists.reviewing, lists.todoReviewed),
     pollDev(lists.taskDevelopment, lists.developing, lists.taskDeveloped),
   ]);
 
   const interval = setInterval(() => {
-    poll(lists.taskRevision, lists.reviewing);
+    poll(lists.taskRevision, lists.reviewing, lists.todoReviewed);
     pollDev(lists.taskDevelopment, lists.developing, lists.taskDeveloped);
   }, config.pollIntervalMs);
 
