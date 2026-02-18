@@ -17,9 +17,9 @@
   '-......-'
 ```
 
-**Your AI teammate that turns Trello cards into pull requests.**
+**Your AI teammate that reviews the feature cards with knowledge about your codebase and initiates the PR.**
 
-Write a task. Drop it in a list. Get a PR.
+YOu have a team where a Product Manager writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggests improvements and explains the implmentation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to craete a new Draft PR.
 
 [Starting from Scratch](#starting-from-scratch) · [Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
