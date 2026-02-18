@@ -1,3 +1,4 @@
+import "./logger.js";
 import { config } from "./config.js";
 import { getListCards } from "./trello.js";
 import { loadProcessedCards, isCardProcessed, unmarkCardProcessed } from "./state.js";

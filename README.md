@@ -276,11 +276,34 @@ Configures `iptables` so `claudeuser` can only reach Trello, GitHub, and your al
 
 ---
 
+## Logs
+
+Sergio writes a human-readable log file at `logs/sergio.log` (configurable via `logsDir` in `sergio.config.json`). All console output — poll activity, card processing, errors — is appended to this file with timestamps and log levels.
+
+```
+2026-02-18T14:30:01.123Z [INFO] Sergio starting...
+2026-02-18T14:30:01.456Z [INFO] Board ID: abc123
+2026-02-18T14:31:01.789Z [INFO] Found 1 new card(s)
+2026-02-18T14:31:05.012Z [INFO] Processing card: Add login page (card123)
+2026-02-18T14:31:45.345Z [ERROR] Error processing card card456 (Broken task): ...
+```
+
+To follow logs in real time:
+
+```bash
+tail -f logs/sergio.log
+```
+
+When running as a systemd service, logs also go to journald (`journalctl -u sergio -f`). The log file is useful for sharing with teammates or reviewing past activity without SSH access.
+
+---
+
 ## Project Structure
 
 ```
 src/
   config.ts            Config loader (sergio.config.json + .env)
+  logger.ts            File logging (tees console output to logs/sergio.log)
   index.ts             Entry point with concurrent polling loops
   trello.ts            Trello REST API client
   processor.ts         Planning pipeline (card to Claude to plan to comment)
