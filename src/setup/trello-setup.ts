@@ -67,6 +67,14 @@ export interface BoardSetupResult {
   };
 }
 
+export async function fetchBoardLists(
+  boardId: string,
+  apiKey: string,
+  token: string
+): Promise<{ id: string; name: string }[]> {
+  return trelloFetch(`/boards/${boardId}/lists`, apiKey, token);
+}
+
 export async function setupTrelloBoard(
   botName: string,
   apiKey: string,

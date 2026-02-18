@@ -2,10 +2,17 @@ import { execFileSync } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { collectSetupAnswers, ask, closePrompts } from "./prompts.js";
-import { setupTrelloBoard, type BoardSetupResult } from "./trello-setup.js";
+import { setupTrelloBoard, fetchBoardLists, type BoardSetupResult } from "./trello-setup.js";
 
 const CONFIG_FILE = path.resolve("sergio.config.json");
 const ENV_FILE = path.resolve(".env");
+
+function parseBoardId(input: string): string {
+  // Accept a Trello URL like https://trello.com/b/AbCdEfGh/board-name
+  // or just a raw board ID
+  const match = input.match(/trello\.com\/b\/([a-zA-Z0-9]+)/);
+  return match ? match[1] : input.trim();
+}
 
 const BANNER = `
   ___  ____  ____   ___  ____  ___
@@ -236,27 +243,58 @@ async function runFullSetup(): Promise<void> {
       answers.trelloToken
     );
   } else {
-    const boardId = await ask("Existing board ID");
-    const todoId = await ask("TODO list ID");
-    const taskRevisionId = await ask("Task Revision list ID");
-    const reviewingId = await ask("Reviewing list ID");
-    const todoReviewedId = await ask("TODO Reviewed list ID");
-    const taskDevelopmentId = await ask("Task Development list ID");
-    const developingId = await ask("Developing list ID");
-    const taskDevelopedId = await ask("Task Developed list ID");
+    const boardInput = await ask("Existing board URL or ID");
+    const boardId = parseBoardId(boardInput);
 
-    board = {
+    console.log("\nFetching lists from board...");
+    const existingLists = await fetchBoardLists(
       boardId,
-      lists: {
-        todo: todoId,
-        taskRevision: taskRevisionId,
-        reviewing: reviewingId,
-        todoReviewed: todoReviewedId,
-        taskDevelopment: taskDevelopmentId,
-        developing: developingId,
-        taskDeveloped: taskDevelopedId,
-      },
-    };
+      answers.trelloApiKey,
+      answers.trelloToken
+    );
+
+    if (existingLists.length === 0) {
+      console.log("  No lists found on this board. Creating them now...");
+      board = await setupTrelloBoard(
+        answers.botName,
+        answers.trelloApiKey,
+        answers.trelloToken
+      );
+      board.boardId = boardId;
+    } else {
+      console.log(`  Found ${existingLists.length} list(s):`);
+      for (const list of existingLists) {
+        console.log(`    - ${list.name} (${list.id})`);
+      }
+
+      function findList(keyword: string): string {
+        const match = existingLists.find((l) =>
+          l.name.toLowerCase().includes(keyword.toLowerCase())
+        );
+        return match?.id || "";
+      }
+
+      board = {
+        boardId,
+        lists: {
+          todo: findList("TODO") || existingLists[0]?.id || "",
+          taskRevision: findList("Task Revision") || findList("Revision"),
+          reviewing: findList("Reviewing"),
+          todoReviewed: findList("Reviewed"),
+          taskDevelopment: findList("Task Development") || findList("Development"),
+          developing: findList("Developing"),
+          taskDeveloped: findList("Developed"),
+        },
+      };
+
+      // Let user confirm or override each mapping
+      console.log("\nList mapping (press Enter to accept, or paste a different list ID):");
+      for (const [key, id] of Object.entries(board.lists)) {
+        const listName = existingLists.find((l) => l.id === id)?.name || "(not found)";
+        const override = await ask(`  ${key} → ${listName}`, id);
+        (board.lists as Record<string, string>)[key] = override;
+      }
+    }
   }
 
   const configData = {
@@ -312,7 +350,8 @@ async function runPartialSetup(
         const board = await setupTrelloBoard(botName, apiKey, token);
         updated.trello = { boardId: board.boardId, lists: board.lists };
       } else {
-        updated.trello.boardId = await ask("Board ID", existing.trello?.boardId);
+        const boardInput = await ask("Board URL or ID", existing.trello?.boardId);
+        updated.trello.boardId = parseBoardId(boardInput);
       }
       break;
     }

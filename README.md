@@ -99,26 +99,28 @@ Once the server is created, Hetzner shows you the IP address.
 ssh root@YOUR_SERVER_IP
 ```
 
-### 3. Create a deploy user (don't run Sergio as root)
+### 3. Initial setup and install Claude
 
 ```bash
+# Create a deploy user (don't run Sergio as root)
 adduser deploy
 usermod -aG sudo deploy
-# Copy your SSH key to the new user
 mkdir -p /home/deploy/.ssh
 cp ~/.ssh/authorized_keys /home/deploy/.ssh/
 chown -R deploy:deploy /home/deploy/.ssh
 
-# Switch to the deploy user
+# Install Node.js and Git
+curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+apt-get install -y nodejs git
+
+# Install Claude CLI
+npm install -g @anthropic-ai/claude-code
+
+# Switch to deploy user
 su - deploy
 ```
 
-### 4. Install Node.js
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt-get install -y nodejs git
-```
+From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below.
 
 From here, follow the [Getting Started](#getting-started) section below.
 
