@@ -83,7 +83,7 @@ The bot polls both pipelines concurrently. Planning takes minutes. Development c
 
 ```bash
 # Clone and install
-git clone https://github.com/AlfredoProgworker/sergio.git /opt/sergio
+git clone https://github.com/Belfio/sergio.git /opt/sergio
 cd /opt/sergio
 npm install
 
@@ -279,10 +279,10 @@ Sergio is used in production by its creators. That said, it is early-stage open 
 
 ## Contributing
 
-Contributions are welcome! Please [open an issue](https://github.com/AlfredoProgworker/sergio/issues) to discuss what you'd like to change before submitting a PR.
+Contributions are welcome! Please [open an issue](https://github.com/Belfio/sergio/issues) to discuss what you'd like to change before submitting a PR.
 
 ```bash
-git clone https://github.com/AlfredoProgworker/sergio.git
+git clone https://github.com/Belfio/sergio.git
 cd sergio
 npm install
 npm run setup
