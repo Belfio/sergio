@@ -16,8 +16,9 @@
  '.\          /.'
  '-......-'
 ```
+# Sergio AI
 
-**Your AI teammate that reviews the PM cards with knowledge about your codebase and initiates the PR.**
+## Your AI teammate that reviews the PM cards with knowledge about your codebase and initiates the PR.
 
 You have a team where a Product Manager writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggest improvements and explain the implementation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to create a new Draft PR.
 
