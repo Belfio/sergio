@@ -1,0 +1,15 @@
+[Unit]
+Description=Sergio Bot - AI-powered Trello automation
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/opt/sergio
+EnvironmentFile=/opt/sergio/.env
+ExecStart=/usr/bin/npx tsx src/index.ts
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,42 @@
+{
+  "name": "sergio-bot",
+  "version": "1.0.0",
+  "description": "AI teammate that turns Trello cards into pull requests using Claude",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "setup": "tsx src/setup/index.ts"
+  },
+  "keywords": [
+    "trello",
+    "claude",
+    "ai",
+    "automation",
+    "bot",
+    "pull-request",
+    "code-generation",
+    "anthropic"
+  ],
+  "author": "Alfredo Belfiori",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlfredoProgworker/sergio.git"
+  },
+  "homepage": "https://github.com/AlfredoProgworker/sergio",
+  "bugs": {
+    "url": "https://github.com/AlfredoProgworker/sergio/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}
