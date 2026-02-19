@@ -328,7 +328,13 @@ When running as a systemd service, logs also go to journald (`journalctl -u serg
 
 ### Status dashboard
 
-Run `npm run status` for a quick overview of everything:
+Run `npm run status` to get a snapshot of Sergio's current state. It shows:
+
+- **Services** — whether the Sergio polling loop is running and how many Claude CLI sessions are active
+- **Board** — card count per Trello list with card names, so you see exactly what's queued, in progress, and done
+- **Recent Activity** — last 10 lines from `sergio.log`, color-coded by log level
+
+Example output:
 
 ```
   SERGIO STATUS  2/19/2026, 4:30:00 PM
