@@ -1,6 +1,7 @@
 You are a developer implementing changes in the codebase.
 
 Below is a Trello card with an implementation plan in its comments. Your job is to:
+0. Get the right codebase - Pull the latest code from the "stg" remote branch
 1. Read the implementation plan carefully
 2. Review how thee changes affect the codebase
 3. Create a new branch in your repo
