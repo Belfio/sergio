@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "tsx src/index.ts",
-    "setup": "tsx src/setup/index.ts"
+    "setup": "tsx src/setup/index.ts",
+    "status": "tsx src/status.ts"
   },
   "keywords": [
     "trello",

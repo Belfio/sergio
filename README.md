@@ -326,6 +326,33 @@ tail -f logs/sergio.log
 
 When running as a systemd service, logs also go to journald (`journalctl -u sergio -f`). The log file is useful for sharing with teammates or reviewing past activity without SSH access.
 
+### Status dashboard
+
+Run `npm run status` for a quick overview of everything:
+
+```
+  SERGIO STATUS  2/19/2026, 4:30:00 PM
+
+── Services ──
+  Sergio polling:  active
+  Claude sessions: 1+ active
+
+── Board ──
+    0  TODO
+    1  Sergio Task Revision        Add dark mode
+    0  Sergio Reviewing
+    2  TODO Reviewed               Login page, API caching
+    0  Sergio Task Development
+    1  Sergio Developing           User settings
+    3  Task Developed
+
+  Total: 7 card(s) across 7 lists
+
+── Recent Activity ──
+  2026-02-19T16:29:01.123Z [INFO] Found 1 new card(s)
+  2026-02-19T16:29:05.456Z [INFO] Processing card: Add dark mode (abc123)
+```
+
 ---
 
 ## Project Structure
@@ -334,6 +361,7 @@ When running as a systemd service, logs also go to journald (`journalctl -u serg
 src/
   config.ts            Config loader (sergio.config.json + .env)
   logger.ts            File logging (tees console output to logs/sergio.log)
+  status.ts            Terminal dashboard (npm run status)
   index.ts             Entry point with concurrent polling loops
   trello.ts            Trello REST API client
   processor.ts         Planning pipeline (card to Claude to plan to comment)
