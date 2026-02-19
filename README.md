@@ -1,26 +1,21 @@
+
+
+```
+  ___  ____  ____   ___  ____  ___                .-""""""-.
+ / __)( ___)(  _ \ / __)(_  _)/ _ \             .'           '.
+ \__ \ )__)  )   /( (_-. _)(_( (_) )          /    O      O    \
+ (___/(____)(__\_)\___/(____)\___/           :       \__/       :
+                                             |     ________     |
+     _    ___                                 :   /        \   :
+    /_\  |_ _|                                \  | ~~~~~~~~ |  /
+   / _ \  | |                                  '.\          /.'
+  /_/ \_\|___|                                    '-......-'
+```
 <div align="center">
 
-```
-  ___  ____  ____   ___  ____  ___
- / __)( ___)(  _ \ / __)(_  _)/ _ \
- \__ \ )__)  )   /( (_-. _)(_( (_) )
- (___/(____)(__\_)\___/(____)\___/
-
-  .-""""""-.
- .'            '.
- /    O       O    \
- :       \__/       :
- |     ________     |
- :   /        \   :
- \  | ~~~~~~~~ |  /
- '.\          /.'
- '-......-'
-```
 # Sergio AI
 
-## Your AI teammate that reviews the PM cards with knowledge about your codebase and initiates the PR.
-
-You have a team where a Product Manager writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggest improvements and explain the implementation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to create a new Draft PR.
+### Your AI teammate that reviews the PM cards with knowledge about your codebase and initiates the PR.
 
 [Starting from Scratch](#starting-from-scratch) · [Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
@@ -28,7 +23,10 @@ You have a team where a Product Manager writes features with limited knowledge a
 
 ---
 
-Sergio is a self-hosted bot that connects your **Trello board** to **Claude AI**. Write a task card, drop it in the right list, and Sergio reviews it — producing an implementation plan, asking clarifying questions, or requesting card improvements — then writes the code, runs your tests, and opens a pull request.
+**Why**: You have a team where a Product Manager writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggest improvements and explain the implementation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to create a new Draft PR.
+
+
+**What**: Sergio is a self-hosted bot that connects your **Trello board** to **Claude AI**. Write a task card, drop it in the right list, and Sergio reviews it — producing an implementation plan, asking clarifying questions, or requesting card improvements — then writes the code, runs your tests, and opens a pull request.
 
 It runs on a single VM, polls your board every 60 seconds, and uses sandboxed Claude CLI sessions to do the actual work. No external SaaS, no vendor lock-in, fully open source.
 
@@ -226,7 +224,11 @@ Sergio uses two config files. Secrets live in `.env` (never committed). Everythi
   "github": { "repoUrl": "https://github.com/you/your-repo" },
   "repoDir": "/opt/your-repo",  // Path to the repo Sergio works on
   "worktreeBaseDir": "/opt/worktrees",
-  "urlAllowList": [],            // URLs Claude is allowed to access (see Security)
+  "urlAllowList": [              // URLs Claude is allowed to access (see Security)
+    "https://github.com",
+    "https://docs.google.com",
+    "https://www.figma.com"
+  ],
   "prompts": {
     "revisionTemplate": "prompts/revision.md",
     "developmentTemplate": "prompts/development.md"
