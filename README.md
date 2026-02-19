@@ -335,7 +335,7 @@ Run `npm run status` for a quick overview of everything:
 
 ── Services ──
   Sergio polling:  active
-  Claude sessions: 1+ active
+  Claude sessions: 2 active
 
 ── Board ──
     0  TODO
