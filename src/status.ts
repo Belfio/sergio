@@ -16,12 +16,12 @@ function section(title: string) {
   console.log(`\n${BOLD}${CYAN}── ${title} ──${RESET}`);
 }
 
-function checkProcess(pattern: string): boolean {
+function countProcesses(pattern: string): number {
   try {
     const out = execFileSync("pgrep", ["-f", pattern], { encoding: "utf-8" });
-    return out.trim().length > 0;
+    return out.trim().split("\n").filter(Boolean).length;
   } catch {
-    return false;
+    return 0;
   }
 }
 
@@ -39,14 +39,14 @@ async function main() {
   // --- Service & Processes ---
   section("Services");
 
-  const sergioRunning = checkProcess("src/index.ts");
-  const claudeActive = checkProcess("claude -p");
+  const sergioCount = countProcesses("src/index.ts");
+  const claudeCount = countProcesses("claude -p");
 
   console.log(
-    `  Sergio polling:  ${sergioRunning ? `${GREEN}active${RESET}` : `${RED}stopped${RESET}`}`
+    `  Sergio polling:  ${sergioCount > 0 ? `${GREEN}active${RESET}` : `${RED}stopped${RESET}`}`
   );
   console.log(
-    `  Claude sessions: ${claudeActive ? `${YELLOW}1+ active${RESET}` : `${DIM}none${RESET}`}`
+    `  Claude sessions: ${claudeCount > 0 ? `${YELLOW}${claudeCount} active${RESET}` : `${DIM}none${RESET}`}`
   );
 
   // --- Board ---
