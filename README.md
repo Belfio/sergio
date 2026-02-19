@@ -46,34 +46,61 @@ All triggered from a Trello card. You stay in the loop at every step.
 
 ## How It Works
 
-Sergio uses a 7-list Trello board as its interface. Cards flow left-to-right through two pipelines:
+Sergio uses a 7-list Trello board as its interface. Cards flow left-to-right through two pipelines.
 
+### Planning pipeline
+
+```mermaid
+flowchart LR
+    A["TODO"] --> B["Task Revision"]
+    B --> C["Reviewing"]
+    C --> D["TODO Reviewed"]
+    D -- "Add feedback\n& move back" --> B
+
+    style A fill:#f5f5f5,stroke:#999,color:#333
+    style B fill:#fff3cd,stroke:#e6a800,color:#333
+    style C fill:#cce5ff,stroke:#0066cc,color:#333
+    style D fill:#d4edda,stroke:#28a745,color:#333
 ```
-Planning pipeline:
 
-  TODO --> Task Revision --> Reviewing --> TODO Reviewed
-              Sergio            Sergio         You review
-              reviews the       posts its      the response
-              card & codebase   response here  and decide
+| List | Who | What happens |
+|------|-----|-------------|
+| **TODO** | You | Write a card describing the task |
+| **Task Revision** | Sergio | Reads card + codebase, decides how to respond |
+| **Reviewing** | Sergio | Processing state while Claude is working |
+| **TODO Reviewed** | You | Review Sergio's response and decide next step |
 
-Development pipeline:
+**Sergio responds with one of three outcomes:**
 
-  Task Development --> Developing --> Task Developed
-       You move            Sergio         PR created,
-       card here           writes code    ready for
-                           + runs tests   code review
-```
+| Outcome | When | Example |
+|---------|------|---------|
+| Implementation plan | Card is clear and codebase is understood | Detailed steps referencing actual files and functions |
+| Clarifying questions | Card is ambiguous or missing info | "Should sessions auto-extend or have a hard timeout?" |
+| Revision requests | Card has contradictions or infeasible requirements | "The card asks for JWT but the codebase uses session tokens" |
 
-The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
-
-**Planning has three outcomes:** When Sergio reviews a card, it chooses one of:
-1. **Implementation plan** — if the card is clear and the codebase is understood
-2. **Clarifying questions** — if the card is ambiguous or missing info
-3. **Revision requests** — if the card has contradictions or infeasible requirements
-
-The prompt logic for this lives in `prompts/revision.md`. Sergio always posts its response as a free-form markdown comment on the card.
+The prompt logic lives in `prompts/revision.md`. Sergio always posts its response as a markdown comment on the card.
 
 **Feedback loop:** If the response isn't right, add a comment explaining what to change and move the card back to Task Revision. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly.
+
+### Development pipeline
+
+```mermaid
+flowchart LR
+    E["Task Development"] --> F["Developing"]
+    F --> G["Task Developed"]
+
+    style E fill:#fff3cd,stroke:#e6a800,color:#333
+    style F fill:#cce5ff,stroke:#0066cc,color:#333
+    style G fill:#d4edda,stroke:#28a745,color:#333
+```
+
+| List | Who | What happens |
+|------|-----|-------------|
+| **Task Development** | You | Move an approved card here to trigger development |
+| **Developing** | Sergio | Creates worktree, writes code, runs tests |
+| **Task Developed** | You | PR created — ready for code review |
+
+The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
 
 ---
 
