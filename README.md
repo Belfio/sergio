@@ -15,7 +15,7 @@
 
 # Sergio AI
 
-### Your AI teammate that reviews the PM cards with knowledge about your codebase and initiates the PR.
+### Trello AI teammate that reviews the PM cards with knowledge about your codebase, helps you makeing a plan and initiates the PR.
 
 [Starting from Scratch](#starting-from-scratch) · [Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
