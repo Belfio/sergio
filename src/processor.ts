@@ -97,8 +97,20 @@ export async function processCard(
     const plan = await runClaude(filepath, config.repoDir);
     log.info(`  ${config.botName} produced plan (${plan.length} chars)`);
 
-    // 5. Post plan as comment on the Trello card
-    await addComment(card.id, plan);
+    // 5. Post plan as comment on the Trello card (truncated for Trello limit)
+    const MAX_COMMENT_LENGTH = 15000;
+    if (plan.length > MAX_COMMENT_LENGTH) {
+      const planFilename = `${card.id}-plan.txt`;
+      const planFilepath = path.join(config.logsDir, planFilename);
+      await fs.writeFile(planFilepath, plan);
+      log.info(`  Plan too long (${plan.length} chars), saved to ${planFilename}`);
+
+      const truncated = plan.slice(0, MAX_COMMENT_LENGTH) +
+        "\n\n... (plan truncated — full plan saved to logs)";
+      await addComment(card.id, truncated);
+    } else {
+      await addComment(card.id, plan);
+    }
     log.info(`  Posted plan as comment on card`);
 
     // 6. Move card to reviewed list
