@@ -85,13 +85,13 @@ export async function setupTrelloBoard(
   console.log(`  Board created: ${boardId}`);
 
   const listDefs = [
-    { key: "todo", name: "TODO", pos: 1000 },
-    { key: "taskRevision", name: `${botName} Task Revision`, pos: 2000 },
-    { key: "reviewing", name: `${botName} Reviewing`, pos: 3000 },
-    { key: "todoReviewed", name: "TODO Reviewed", pos: 4000 },
-    { key: "taskDevelopment", name: `${botName} Task Development`, pos: 5000 },
-    { key: "developing", name: `${botName} Developing`, pos: 6000 },
-    { key: "taskDeveloped", name: "Task Developed", pos: 7000 },
+    { key: "todo", name: "📋 TODO", pos: 1000 },
+    { key: "taskRevision", name: `🔍 ${botName} Revision`, pos: 2000 },
+    { key: "reviewing", name: `⏳ ${botName} Reviewing`, pos: 3000 },
+    { key: "todoReviewed", name: "✅ Reviewed", pos: 4000 },
+    { key: "taskDevelopment", name: `🛠️ ${botName} Development`, pos: 5000 },
+    { key: "developing", name: `⚙️ ${botName} Developing`, pos: 6000 },
+    { key: "taskDeveloped", name: "🚀 Ready for Review", pos: 7000 },
   ] as const;
 
   const lists: Record<string, string> = {};

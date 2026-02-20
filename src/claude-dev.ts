@@ -22,7 +22,7 @@ export async function runClaudeDev(
 
   const prompt = await loadTemplate(
     path.resolve(config.prompts.developmentTemplate),
-    { botName: config.botName, cardContent, urlPolicy }
+    { botName: config.botName, cardContent, urlPolicy, baseBranch: config.baseBranch, baseRemote: config.baseRemote }
   );
 
   const promptFile = path.join(os.tmpdir(), `claude-dev-prompt-${Date.now()}.txt`);
@@ -30,8 +30,8 @@ export async function runClaudeDev(
 
   try {
     return await new Promise<string>((resolve, reject) => {
-      const child = spawn("su", [
-        "-s", "/bin/bash", "claudeuser", "-c",
+      const child = spawn("sudo", [
+        "-u", "claudeuser", "--", "bash", "-c",
         `claude -p --dangerously-skip-permissions < ${promptFile}`,
       ], {
         cwd: worktreeDir,

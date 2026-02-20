@@ -9,6 +9,8 @@ export interface Config {
   apiKey: string;
   token: string;
   githubToken: string;
+  baseBranch: string;
+  baseRemote: string;
   trello: {
     boardId: string;
     lists: {
@@ -26,7 +28,12 @@ export interface Config {
   worktreeBaseDir: string;
   urlAllowList: string[];
   prompts: { revisionTemplate: string; developmentTemplate: string };
-  timeouts: { claudeDevMs: number; sstDevMs: number; testMs: number };
+  pipeline: {
+    devCommand: string;
+    devReadyPattern: string;
+    testCommands: string[];
+  };
+  timeouts: { claudeDevMs: number; devServerMs: number; testMs: number };
   pollIntervalMs: number;
   logsDir: string;
   dataDir: string;
@@ -57,11 +64,13 @@ function loadConfig(): Config {
   const token = requireEnv("TRELLO_TOKEN");
   const githubToken = process.env.GITHUB_TOKEN || "";
 
-  return {
+  const cfg: Config = {
     botName: raw.botName || "Sergio",
     apiKey,
     token,
     githubToken,
+    baseBranch: raw.baseBranch || "main",
+    baseRemote: raw.baseRemote || "origin",
     trello: {
       boardId: raw.trello?.boardId || "",
       lists: {
@@ -82,15 +91,66 @@ function loadConfig(): Config {
       revisionTemplate: raw.prompts?.revisionTemplate || "prompts/revision.md",
       developmentTemplate: raw.prompts?.developmentTemplate || "prompts/development.md",
     },
+    pipeline: {
+      devCommand: raw.pipeline?.devCommand ?? "npx sst dev",
+      devReadyPattern: raw.pipeline?.devReadyPattern ?? "Complete",
+      testCommands: raw.pipeline?.testCommands ?? ["npx jest --passWithNoTests", "npx playwright test"],
+    },
     timeouts: {
       claudeDevMs: raw.timeouts?.claudeDevMs || 20 * 60 * 1000,
-      sstDevMs: raw.timeouts?.sstDevMs || 10 * 60 * 1000,
+      devServerMs: raw.timeouts?.devServerMs || raw.timeouts?.sstDevMs || 10 * 60 * 1000,
       testMs: raw.timeouts?.testMs || 10 * 60 * 1000,
     },
     pollIntervalMs: raw.pollIntervalMs || 60_000,
     logsDir: raw.logsDir || path.resolve("logs"),
     dataDir: raw.dataDir || path.resolve("data"),
   };
+
+  validateConfig(cfg);
+  return cfg;
+}
+
+function validateConfig(cfg: Config): void {
+  const errors: string[] = [];
+
+  if (!cfg.trello.boardId) {
+    errors.push("trello.boardId is required");
+  }
+
+  const requiredLists = ["todo", "taskRevision", "reviewing", "todoReviewed"] as const;
+  for (const key of requiredLists) {
+    if (!cfg.trello.lists[key]) {
+      errors.push(`trello.lists.${key} is required`);
+    }
+  }
+
+  if (!fs.existsSync(cfg.repoDir)) {
+    errors.push(`repoDir does not exist: ${cfg.repoDir}`);
+  }
+
+  const revisionPath = path.resolve(cfg.prompts.revisionTemplate);
+  if (!fs.existsSync(revisionPath)) {
+    errors.push(`Revision template not found: ${revisionPath}`);
+  }
+
+  const devPath = path.resolve(cfg.prompts.developmentTemplate);
+  if (!fs.existsSync(devPath)) {
+    errors.push(`Development template not found: ${devPath}`);
+  }
+
+  if (cfg.pipeline.devCommand && !cfg.pipeline.devReadyPattern) {
+    errors.push("pipeline.devReadyPattern is required when pipeline.devCommand is set");
+  }
+
+  if (cfg.timeouts.claudeDevMs <= 0 || cfg.timeouts.devServerMs <= 0 || cfg.timeouts.testMs <= 0) {
+    errors.push("All timeout values must be positive numbers");
+  }
+
+  if (errors.length > 0) {
+    console.error("Configuration errors:\n" + errors.map((e) => `  - ${e}`).join("\n"));
+    console.error('\nFix these in sergio.config.json or run "npm run setup".');
+    process.exit(1);
+  }
 }
 
 export const config: Config = loadConfig();

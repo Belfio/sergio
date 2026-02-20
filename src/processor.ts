@@ -75,34 +75,47 @@ export async function processCard(
   await moveCard(card.id, ctx.reviewingListId);
   console.log(`  Moved to reviewing list`);
 
-  // 2. Fetch comments + attachments
-  const [comments, attachments] = await Promise.all([
-    getCardActions(card.id),
-    getCardAttachments(card.id),
-  ]);
+  try {
+    // 2. Fetch comments + attachments
+    const [comments, attachments] = await Promise.all([
+      getCardActions(card.id),
+      getCardAttachments(card.id),
+    ]);
 
-  // 3. Write enriched .txt file
-  const content = formatCardData(card, comments, attachments, ctx);
+    // 3. Write enriched .txt file
+    const content = formatCardData(card, comments, attachments, ctx);
 
-  await fs.mkdir(config.logsDir, { recursive: true });
-  const filename = `${card.id}-${sanitizeFilename(card.name)}.txt`;
-  const filepath = path.join(config.logsDir, filename);
-  await fs.writeFile(filepath, content);
-  console.log(`  Wrote log: ${filename}`);
+    await fs.mkdir(config.logsDir, { recursive: true });
+    const filename = `${card.id}-${sanitizeFilename(card.name)}.txt`;
+    const filepath = path.join(config.logsDir, filename);
+    await fs.writeFile(filepath, content);
+    console.log(`  Wrote log: ${filename}`);
 
-  // 4. Run Claude to generate implementation plan
-  console.log(`  Running ${config.botName} against ${config.repoDir}...`);
-  const plan = await runClaude(filepath, config.repoDir);
-  console.log(`  ${config.botName} produced plan (${plan.length} chars)`);
+    // 4. Run Claude to generate implementation plan
+    console.log(`  Running ${config.botName} against ${config.repoDir}...`);
+    const plan = await runClaude(filepath, config.repoDir);
+    console.log(`  ${config.botName} produced plan (${plan.length} chars)`);
 
-  // 5. Post plan as comment on the Trello card
-  await addComment(card.id, plan);
-  console.log(`  Posted plan as comment on card`);
+    // 5. Post plan as comment on the Trello card
+    await addComment(card.id, plan);
+    console.log(`  Posted plan as comment on card`);
 
-  // 6. Move card to reviewed list
-  await moveCard(card.id, ctx.destListId);
-  console.log(`  Moved to reviewed list`);
+    // 6. Move card to reviewed list
+    await moveCard(card.id, ctx.destListId);
+    console.log(`  Moved to reviewed list`);
 
-  // 7. Mark as processed
-  await markCardProcessed(card.id);
+    // 7. Mark as processed
+    await markCardProcessed(card.id);
+  } catch (err) {
+    console.error(`[PLAN] Error processing card ${card.id}:`, err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    await addComment(
+      card.id,
+      `**${config.botName} error:**\n\n${errMsg.slice(0, 5000)}`
+    ).catch((e) => console.error("  Failed to post error comment:", e));
+    // Move card back to source list so it can be retried
+    await moveCard(card.id, ctx.sourceListId).catch((e) =>
+      console.error("  Failed to move card back:", e)
+    );
+  }
 }

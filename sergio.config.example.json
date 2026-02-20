@@ -1,0 +1,43 @@
+{
+  "botName": "Sergio",
+  "baseBranch": "main",
+  "baseRemote": "origin",
+  "trello": {
+    "boardId": "YOUR_BOARD_ID",
+    "lists": {
+      "todo": "LIST_ID",
+      "taskRevision": "LIST_ID",
+      "reviewing": "LIST_ID",
+      "todoReviewed": "LIST_ID",
+      "taskDevelopment": "LIST_ID",
+      "developing": "LIST_ID",
+      "taskDeveloped": "LIST_ID"
+    }
+  },
+  "github": {
+    "repoUrl": "https://github.com/you/your-repo"
+  },
+  "repoDir": "/opt/repo",
+  "worktreeBaseDir": "/opt/worktrees",
+  "urlAllowList": [
+    "https://github.com",
+    "https://docs.google.com"
+  ],
+  "prompts": {
+    "revisionTemplate": "prompts/revision.md",
+    "developmentTemplate": "prompts/development.md"
+  },
+  "pipeline": {
+    "devCommand": "",
+    "devReadyPattern": "",
+    "testCommands": ["npm test"]
+  },
+  "timeouts": {
+    "claudeDevMs": 1200000,
+    "devServerMs": 600000,
+    "testMs": 600000
+  },
+  "pollIntervalMs": 60000,
+  "logsDir": "logs",
+  "dataDir": "data"
+}

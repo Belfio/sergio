@@ -112,6 +112,29 @@ function ensureClaudeUser(): void {
       console.error("  sudo useradd --system --shell /bin/bash --create-home claudeuser");
     }
   }
+
+  // Ensure the deploy user can sudo as claudeuser without a password
+  const sudoersFile = "/etc/sudoers.d/sergio";
+  const sudoersRule = "deploy ALL=(claudeuser) NOPASSWD: ALL";
+  try {
+    const existing = execFileSync("sudo", ["cat", sudoersFile], { encoding: "utf-8" }).trim();
+    if (existing === sudoersRule) {
+      console.log("  sudoers rule already configured");
+      return;
+    }
+  } catch {
+    // File doesn't exist yet
+  }
+
+  console.log("  Configuring sudoers rule for deploy → claudeuser...");
+  try {
+    execFileSync("bash", ["-c", `echo '${sudoersRule}' | sudo tee ${sudoersFile} > /dev/null && sudo chmod 0440 ${sudoersFile}`], { stdio: "inherit" });
+    console.log("  sudoers rule created at /etc/sudoers.d/sergio");
+  } catch {
+    console.error("  Failed to create sudoers rule. Please run manually:");
+    console.error(`  echo '${sudoersRule}' | sudo tee ${sudoersFile}`);
+    console.error(`  sudo chmod 0440 ${sudoersFile}`);
+  }
 }
 
 async function loadExistingConfig(): Promise<any | null> {
@@ -297,8 +320,10 @@ async function runFullSetup(): Promise<void> {
     }
   }
 
-  const configData = {
+  const configData: Record<string, any> = {
     botName: answers.botName,
+    baseBranch: answers.baseBranch,
+    baseRemote: answers.baseRemote,
     trello: {
       boardId: board.boardId,
       lists: board.lists,
@@ -311,9 +336,14 @@ async function runFullSetup(): Promise<void> {
       revisionTemplate: answers.revisionTemplate,
       developmentTemplate: answers.developmentTemplate,
     },
+    pipeline: {
+      devCommand: answers.devCommand,
+      devReadyPattern: answers.devReadyPattern,
+      testCommands: answers.testCommands,
+    },
     timeouts: {
       claudeDevMs: 1200000,
-      sstDevMs: 600000,
+      devServerMs: 600000,
       testMs: 600000,
     },
     pollIntervalMs: 60000,

@@ -51,9 +51,9 @@ Sergio uses a 7-list Trello board as its interface. Cards flow left-to-right thr
 
 ```mermaid
 flowchart LR
-    A["TODO"] --> B["Task Revision"]
-    B --> C["Reviewing"]
-    C --> D["TODO Reviewed"]
+    A["📋 TODO"] --> B["🔍 Revision"]
+    B --> C["⏳ Reviewing"]
+    C --> D["✅ Reviewed"]
     D -- "Add feedback\n& move back" --> B
 
     style A fill:#f5f5f5,stroke:#999,color:#333
@@ -64,10 +64,10 @@ flowchart LR
 
 | List | Who | What happens |
 |------|-----|-------------|
-| **TODO** | You | Write a card describing the task |
-| **Task Revision** | Sergio | Reads card + codebase, decides how to respond |
-| **Reviewing** | Sergio | Processing state while Claude is working |
-| **TODO Reviewed** | You | Review Sergio's response and decide next step |
+| **📋 TODO** | You | Write a card describing the task |
+| **🔍 Revision** | Sergio | Reads card + codebase, decides how to respond |
+| **⏳ Reviewing** | Sergio | Processing state while Claude is working |
+| **✅ Reviewed** | You | Review Sergio's response and decide next step |
 
 **Sergio responds with one of three outcomes:**
 
@@ -79,14 +79,14 @@ flowchart LR
 
 The prompt logic lives in `prompts/revision.md`. Sergio always posts its response as a markdown comment on the card.
 
-**Feedback loop:** If the response isn't right, add a comment explaining what to change and move the card back to Task Revision. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly.
+**Feedback loop:** If the response isn't right, add a comment explaining what to change and move the card back to 🔍 Revision. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly.
 
 ### Development pipeline
 
 ```mermaid
 flowchart LR
-    E["Task Development"] --> F["Developing"]
-    F --> G["Task Developed"]
+    E["🛠️ Development"] --> F["⚙️ Developing"]
+    F --> G["🚀 Ready for Review"]
 
     style E fill:#fff3cd,stroke:#e6a800,color:#333
     style F fill:#cce5ff,stroke:#0066cc,color:#333
@@ -95,11 +95,13 @@ flowchart LR
 
 | List | Who | What happens |
 |------|-----|-------------|
-| **Task Development** | You | Move an approved card here to trigger development |
-| **Developing** | Sergio | Creates worktree, writes code, runs tests |
-| **Task Developed** | You | PR created — ready for code review |
+| **🛠️ Development** | You | Move an approved card here to trigger development |
+| **⚙️ Developing** | Sergio | Creates worktree, writes code, runs tests |
+| **🚀 Ready for Review** | You | PR created — ready for code review |
 
 The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
+
+**Commit authoring:** Commits made by the development pipeline are authored as `Sergio AI <sergio-ai@noreply>` (or your custom `botName`), so they're easy to distinguish from human commits in GitHub's history. Note that PR authorship is tied to the `GITHUB_TOKEN` owner and cannot be overridden without a dedicated bot account.
 
 ---
 
@@ -189,7 +191,7 @@ npm start
 ### What the setup wizard does
 
 - **Checks system dependencies** — Node, Git, [Claude CLI](https://docs.anthropic.com/en/docs/claude-code), [GitHub CLI](https://cli.github.com/) — and offers to install any that are missing
-- **Creates a `claudeuser`** system account for sandboxed Claude execution
+- **Creates a `claudeuser`** system account for sandboxed Claude execution, plus a sudoers rule so `deploy` can run commands as `claudeuser`
 - **Collects your API keys** — Anthropic, Trello, GitHub
 - **Creates a Trello board** with 7 pre-configured workflow lists (or connects to an existing board)
 - **Generates config files** — `sergio.config.json` and `.env`
@@ -218,6 +220,8 @@ Sergio uses two config files. Secrets live in `.env` (never committed). Everythi
 ```jsonc
 {
   "botName": "Sergio",           // Name used in Trello lists, logs, branch prefixes
+  "baseBranch": "main",          // Base branch for worktrees (default: "main")
+  "baseRemote": "origin",        // Git remote name (default: "origin")
   "trello": {
     "boardId": "...",
     "lists": { /* list IDs set automatically by setup */ }
@@ -234,14 +238,21 @@ Sergio uses two config files. Secrets live in `.env` (never committed). Everythi
     "revisionTemplate": "prompts/revision.md",
     "developmentTemplate": "prompts/development.md"
   },
+  "pipeline": {
+    "devCommand": "",            // Dev server command (e.g. "npx sst dev") — empty = skip
+    "devReadyPattern": "",       // Text to watch for in dev server output
+    "testCommands": ["npm test"] // Test commands to run — empty array = skip
+  },
   "timeouts": {
-    "claudeDevMs": 1200000,      // 20 min
-    "sstDevMs": 600000,          // 10 min
-    "testMs": 600000             // 10 min
+    "claudeDevMs": 1200000,      // 20 min — Claude dev session
+    "devServerMs": 600000,       // 10 min — dev server startup
+    "testMs": 600000             // 10 min — per test command
   },
   "pollIntervalMs": 60000       // 1 min
 }
 ```
+
+> **Works with any repo:** The `pipeline` section is optional. If you don't need a dev server, leave `devCommand` empty. If you don't have tests yet, set `testCommands` to `[]`. Sergio will skip those stages and go straight to commit + PR.
 
 ### .env
 
@@ -274,6 +285,8 @@ Sergio's Claude behavior is driven by two editable Markdown templates:
 | `{{botName}}` | Bot name from config |
 | `{{cardContent}}` | Full Trello card (description + comments + attachments) |
 | `{{urlPolicy}}` | Auto-generated URL restriction policy, or empty string |
+| `{{baseBranch}}` | Base branch name from config (default: `main`) |
+| `{{baseRemote}}` | Git remote name from config (default: `origin`) |
 
 Add your coding standards, framework conventions, or architectural constraints directly to these templates. Claude will follow them on every task.
 
@@ -283,7 +296,14 @@ Add your coding standards, framework conventions, or architectural constraints d
 
 ### Sandboxed execution
 
-Claude CLI runs under a dedicated `claudeuser` system account, isolated from your deploy user. This limits what Claude can access on the filesystem.
+Claude CLI runs under a dedicated `claudeuser` system account, isolated from your deploy user. This limits what Claude can access on the filesystem. The `deploy` user executes Claude sessions via `sudo -u claudeuser`, which requires a sudoers rule created automatically by `npm run setup`:
+
+```
+# /etc/sudoers.d/sergio
+deploy ALL=(claudeuser) NOPASSWD: ALL
+```
+
+This allows `deploy` to run commands as `claudeuser` without a password, while keeping the two accounts separate.
 
 ### URL allow list
 
@@ -345,13 +365,13 @@ Example output:
   Claude sessions: 2 active
 
 ── Board ──
-    0  TODO
-    1  Sergio Task Revision        Add dark mode
-    0  Sergio Reviewing
-    2  TODO Reviewed               Login page, API caching
-    0  Sergio Task Development
-    1  Sergio Developing           User settings
-    3  Task Developed
+    0  📋 TODO
+    1  🔍 Sergio Revision          Add dark mode
+    0  ⏳ Sergio Reviewing
+    2  ✅ Reviewed                  Login page, API caching
+    0  🛠️ Sergio Development
+    1  ⚙️ Sergio Developing         User settings
+    3  🚀 Ready for Review
 
   Total: 7 card(s) across 7 lists
 

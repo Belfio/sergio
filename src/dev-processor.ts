@@ -67,8 +67,8 @@ function runAsClaudeUser(
   timeoutMs: number
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("su", [
-      "-s", "/bin/bash", "claudeuser", "-c", command,
+    const child = spawn("sudo", [
+      "-u", "claudeuser", "--", "bash", "-c", command,
     ], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -112,11 +112,11 @@ async function createWorktree(
   worktreeDir: string,
   branchName: string
 ): Promise<void> {
-  // Fetch latest from origin first
-  await runAsClaudeUser("git fetch origin", repoDir, 60_000);
-  // Create worktree with new branch based on origin/main
+  // Fetch latest from remote
+  await runAsClaudeUser(`git fetch ${config.baseRemote}`, repoDir, 60_000);
+  // Create worktree with new branch based on configured remote/branch
   await runAsClaudeUser(
-    `git worktree add -b ${branchName} ${worktreeDir} origin/main`,
+    `git worktree add -b ${branchName} ${worktreeDir} ${config.baseRemote}/${config.baseBranch}`,
     repoDir,
     60_000
   );
@@ -145,86 +145,85 @@ async function cleanupWorktree(
   console.log(`  Cleaned up worktree ${worktreeDir}`);
 }
 
-async function withSstDev<T>(
+async function withDevServer<T>(
   worktreeDir: string,
   fn: () => Promise<T>
 ): Promise<T> {
-  console.log("  Starting npx sst dev...");
-  const sstProcess: ChildProcess = spawn("su", [
-    "-s", "/bin/bash", "claudeuser", "-c", "npx sst dev",
+  const devCmd = config.pipeline.devCommand;
+  const readyPattern = config.pipeline.devReadyPattern;
+  console.log(`  Starting dev server: ${devCmd}...`);
+  const devProcess: ChildProcess = spawn("sudo", [
+    "-u", "claudeuser", "--", "bash", "-c", devCmd,
   ], {
     cwd: worktreeDir,
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env },
   });
 
-  let sstReady = false;
+  let serverReady = false;
 
-  // Wait for SST to be ready
+  // Wait for dev server to be ready
   await new Promise<void>((resolve, reject) => {
     let output = "";
 
     const onData = (chunk: Buffer) => {
       output += chunk.toString();
-      if (output.includes("Complete")) {
-        sstReady = true;
+      if (readyPattern && output.includes(readyPattern)) {
+        serverReady = true;
+        clearTimeout(timer);
         resolve();
       }
     };
 
-    sstProcess.stdout?.on("data", onData);
-    sstProcess.stderr?.on("data", onData);
+    devProcess.stdout?.on("data", onData);
+    devProcess.stderr?.on("data", onData);
 
     const timer = setTimeout(() => {
-      if (!sstReady) {
-        reject(new Error(`SST dev did not become ready within ${config.timeouts.sstDevMs / 1000}s`));
+      if (!serverReady) {
+        devProcess.kill("SIGTERM");
+        reject(new Error(`Dev server did not become ready within ${config.timeouts.devServerMs / 1000}s`));
       }
-    }, config.timeouts.sstDevMs);
+    }, config.timeouts.devServerMs);
 
-    sstProcess.on("close", (code) => {
+    devProcess.on("close", (code) => {
       clearTimeout(timer);
-      if (!sstReady) {
-        reject(new Error(`SST dev exited with code ${code} before becoming ready`));
+      if (!serverReady) {
+        reject(new Error(`Dev server exited with code ${code} before becoming ready`));
       }
     });
 
-    sstProcess.on("error", (err) => {
+    devProcess.on("error", (err) => {
       clearTimeout(timer);
-      reject(new Error(`Failed to start SST dev: ${err.message}`));
+      reject(new Error(`Failed to start dev server: ${err.message}`));
     });
   });
 
-  console.log("  SST dev is ready");
+  console.log("  Dev server is ready");
 
   try {
     return await fn();
   } finally {
-    sstProcess.kill("SIGTERM");
+    devProcess.kill("SIGTERM");
     // Give it a moment to clean up
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    if (!sstProcess.killed) {
-      sstProcess.kill("SIGKILL");
+    if (!devProcess.killed) {
+      devProcess.kill("SIGKILL");
     }
-    console.log("  SST dev stopped");
+    console.log("  Dev server stopped");
   }
 }
 
-async function runTests(worktreeDir: string): Promise<void> {
-  console.log("  Running jest tests...");
-  await runAsClaudeUser(
-    "npx jest --passWithNoTests",
-    worktreeDir,
-    config.timeouts.testMs
-  );
-  console.log("  Jest tests passed");
-
-  console.log("  Running playwright tests...");
-  await runAsClaudeUser(
-    "npx playwright test",
-    worktreeDir,
-    config.timeouts.testMs
-  );
-  console.log("  Playwright tests passed");
+async function runTestCommands(worktreeDir: string): Promise<void> {
+  const commands = config.pipeline.testCommands;
+  if (commands.length === 0) {
+    console.log("  No test commands configured, skipping tests");
+    return;
+  }
+  for (const cmd of commands) {
+    console.log(`  Running: ${cmd}...`);
+    await runAsClaudeUser(cmd, worktreeDir, config.timeouts.testMs);
+    console.log(`  Passed: ${cmd}`);
+  }
 }
 
 async function gitCommitAndPush(
@@ -234,13 +233,14 @@ async function gitCommitAndPush(
 ): Promise<void> {
   await runAsClaudeUser("git add -A", worktreeDir, 30_000);
   const commitMsg = `feat: ${cardName}`;
+  const author = `${config.botName} AI <${config.botName.toLowerCase()}-ai@noreply>`;
   await runAsClaudeUser(
-    `git commit -m "${commitMsg.replace(/"/g, '\\"')}"`,
+    `git commit --author="${author}" -m "${commitMsg.replace(/"/g, '\\"')}"`,
     worktreeDir,
     30_000
   );
   await runAsClaudeUser(
-    `git push -u origin ${branchName}`,
+    `git push -u ${config.baseRemote} ${branchName}`,
     worktreeDir,
     60_000
   );
@@ -302,11 +302,14 @@ export async function processDevCard(
     await addComment(card.id, `**${config.botName} Dev Output:**\n\n${truncatedOutput}`);
     console.log("  Posted Claude output as comment");
 
-    // 6. Deploy with SST dev, then run tests
-    await withSstDev(worktreeDir, async () => {
-      // 7. Run tests
-      await runTests(worktreeDir);
-    });
+    // 6. Run dev server (if configured) and tests
+    if (config.pipeline.devCommand) {
+      await withDevServer(worktreeDir, async () => {
+        await runTestCommands(worktreeDir);
+      });
+    } else {
+      await runTestCommands(worktreeDir);
+    }
 
     // 8. Git commit + push
     await gitCommitAndPush(worktreeDir, branchName, card.name);
@@ -327,12 +330,15 @@ export async function processDevCard(
     console.log(`[DEV] Done: ${card.name}`);
   } catch (err) {
     console.error(`[DEV] Error processing card ${card.id}:`, err);
-    // Post error as comment, leave card in CLAUDE DEVELOPING
     const errMsg = err instanceof Error ? err.message : String(err);
     await addComment(
       card.id,
-      `**Dev pipeline error:**\n\n${errMsg.slice(0, 5000)}`
+      `**${config.botName} error:**\n\n${errMsg.slice(0, 5000)}`
     ).catch((e) => console.error("  Failed to post error comment:", e));
+    // Move card back to source list so it can be retried
+    await moveCard(card.id, ctx.sourceListId).catch((e) =>
+      console.error("  Failed to move card back:", e)
+    );
   } finally {
     // Always clean up worktree
     await cleanupWorktree(config.repoDir, worktreeDir);

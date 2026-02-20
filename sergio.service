@@ -4,6 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
+# Runs as deploy; uses sudo to execute Claude CLI as claudeuser.
+# Requires: /etc/sudoers.d/sergio (created by npm run setup)
 User=deploy
 WorkingDirectory=/opt/sergio
 EnvironmentFile=/opt/sergio/.env

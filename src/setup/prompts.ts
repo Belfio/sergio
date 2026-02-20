@@ -27,6 +27,11 @@ export interface SetupAnswers {
   repoUrl: string;
   repoDir: string;
   worktreeBaseDir: string;
+  baseBranch: string;
+  baseRemote: string;
+  devCommand: string;
+  devReadyPattern: string;
+  testCommands: string[];
   urlAllowList: string[];
   revisionTemplate: string;
   developmentTemplate: string;
@@ -39,8 +44,20 @@ export async function collectSetupAnswers(): Promise<SetupAnswers> {
   const trelloToken = await ask("Trello Token");
   const githubToken = await ask("GitHub Token (optional)");
   const repoUrl = await ask("GitHub repository URL");
-  const repoDir = await ask("Repo directory on server", "/opt/gtb-platform");
-  const worktreeBaseDir = await ask("Worktree base directory", "/opt/gtb-worktrees");
+  const repoDir = await ask("Repo directory on server", "/opt/repo");
+  const worktreeBaseDir = await ask("Worktree base directory", "/opt/worktrees");
+  const baseBranch = await ask("Base branch", "main");
+  const baseRemote = await ask("Base remote", "origin");
+
+  const devCommand = await ask("Dev server command (optional, e.g. 'npx sst dev', leave empty to skip)", "");
+  let devReadyPattern = "";
+  if (devCommand) {
+    devReadyPattern = await ask("Dev server ready pattern (text to watch for)", "Complete");
+  }
+  const testCommandsRaw = await ask("Test commands (comma-separated, optional, e.g. 'npx jest,npx playwright test')", "");
+  const testCommands = testCommandsRaw
+    ? testCommandsRaw.split(",").map((c) => c.trim()).filter(Boolean)
+    : [];
 
   const urlListRaw = await ask("URL allow list (comma-separated, or leave empty)");
   const urlAllowList = urlListRaw
@@ -65,6 +82,11 @@ export async function collectSetupAnswers(): Promise<SetupAnswers> {
     repoUrl,
     repoDir,
     worktreeBaseDir,
+    baseBranch,
+    baseRemote,
+    devCommand,
+    devReadyPattern,
+    testCommands,
     urlAllowList,
     revisionTemplate,
     developmentTemplate,
