@@ -16,6 +16,7 @@
 # Sergio AI
 
 ### Trello AI teammate that reviews the Product Manager PRD and designs  trello cards with knowledge about your codebase, helps you makeing a plan and initiates the PR.
+Developers have AI PR reviews. Product Manager should have the same support.
 
 [Starting from Scratch](#starting-from-scratch) · [Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
