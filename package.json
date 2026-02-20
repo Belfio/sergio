@@ -31,7 +31,7 @@
   "engines": {
     "node": ">=18"
   },
-  "type": "commonjs",
+  "type": "module",
   "devDependencies": {
     "@types/node": "^25.2.3",
     "tsx": "^4.21.0",

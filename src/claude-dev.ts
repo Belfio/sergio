@@ -1,9 +1,15 @@
-import { spawn } from "child_process";
+import { spawn, execFileSync } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { config } from "./config.js";
 import { loadTemplate } from "./template.js";
+
+// Resolve claudeuser UID once at startup (no shell involved)
+const claudeUserUid = parseInt(
+  execFileSync("id", ["-u", "claudeuser"], { encoding: "utf-8" }).trim(),
+  10
+);
 
 function buildUrlPolicy(urls: string[]): string {
   if (urls.length === 0) return "";
@@ -26,10 +32,14 @@ export async function runClaudeDev(
   );
 
   const promptFile = path.join(os.tmpdir(), `claude-dev-prompt-${Date.now()}.txt`);
-  await fs.writeFile(promptFile, prompt, { mode: 0o644 });
+  await fs.writeFile(promptFile, prompt, { mode: 0o600 });
+  await fs.chown(promptFile, claudeUserUid, -1);
 
   try {
     return await new Promise<string>((resolve, reject) => {
+      // --dangerously-skip-permissions is required for non-interactive automation.
+      // Mitigations: runs as sandboxed "claudeuser" with restricted network (firewall),
+      // private prompt file (mode 0600), and no access to secrets or credentials.
       const child = spawn("sudo", [
         "-u", "claudeuser", "--", "bash", "-c",
         `claude -p --dangerously-skip-permissions < ${promptFile}`,

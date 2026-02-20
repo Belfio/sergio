@@ -6,15 +6,50 @@ function authParams(): string {
   return `key=${config.apiKey}&token=${config.token}`;
 }
 
+const MAX_RETRIES = 3;
+const TIMEOUT_MS = 30_000;
+const BASE_BACKOFF_MS = 1_000;
+
+function isRetryable(err: unknown, status?: number): boolean {
+  if (status === 429 || (status !== undefined && status >= 500)) return true;
+  if (err instanceof Error) {
+    const msg = err.message;
+    if (msg.includes("abort") || msg.includes("ECONNRESET") || msg.includes("ETIMEDOUT") || msg.includes("ENOTFOUND")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function trelloFetch(path: string, init?: RequestInit): Promise<any> {
   const separator = path.includes("?") ? "&" : "?";
   const url = `${BASE_URL}${path}${separator}${authParams()}`;
-  const res = await fetch(url, init);
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Trello API error ${res.status}: ${body}`);
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
+
+      if (res.ok) return res.json();
+
+      const body = await res.text();
+      if (!isRetryable(null, res.status) || attempt === MAX_RETRIES - 1) {
+        throw new Error(`Trello API error ${res.status}: ${body}`);
+      }
+    } catch (err) {
+      clearTimeout(timer);
+      if (attempt === MAX_RETRIES - 1 || !isRetryable(err)) {
+        throw err;
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, BASE_BACKOFF_MS * Math.pow(2, attempt)));
   }
-  return res.json();
+
+  throw new Error("Trello API: max retries exceeded");
 }
 
 export interface TrelloList {

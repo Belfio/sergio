@@ -8,25 +8,42 @@ fs.mkdirSync(config.logsDir, { recursive: true });
 
 const stream = fs.createWriteStream(logFile, { flags: "a" });
 
-const originalLog = console.log.bind(console);
-const originalError = console.error.bind(console);
-
 function timestamp(): string {
   return new Date().toISOString();
 }
 
-function formatArgs(args: unknown[]): string {
-  return args
-    .map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2)))
-    .join(" ");
+function safeStringify(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
-console.log = (...args: unknown[]) => {
-  originalLog(...args);
-  stream.write(`${timestamp()} [INFO] ${formatArgs(args)}\n`);
-};
+function formatArgs(args: unknown[]): string {
+  return args.map(safeStringify).join(" ");
+}
 
-console.error = (...args: unknown[]) => {
-  originalError(...args);
-  stream.write(`${timestamp()} [ERROR] ${formatArgs(args)}\n`);
+function write(level: string, args: unknown[]): void {
+  const msg = formatArgs(args);
+  const line = `${timestamp()} [${level}] ${msg}\n`;
+  if (level === "ERROR" || level === "WARN") {
+    process.stderr.write(line);
+  } else {
+    process.stdout.write(line);
+  }
+  stream.write(line);
+}
+
+export const log = {
+  info(...args: unknown[]): void {
+    write("INFO", args);
+  },
+  error(...args: unknown[]): void {
+    write("ERROR", args);
+  },
+  warn(...args: unknown[]): void {
+    write("WARN", args);
+  },
 };

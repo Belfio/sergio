@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from "child_process";
+import { log } from "./logger.js";
 import { config } from "./config.js";
 import {
   getCardActions,
@@ -10,7 +11,7 @@ import {
   type TrelloComment,
   type TrelloAttachment,
 } from "./trello.js";
-import { markDevCardProcessed } from "./dev-state.js";
+import { markDevCardProcessed, incrementDevCardAttempts, clearDevCardAttempts } from "./dev-state.js";
 import { runClaudeDev } from "./claude-dev.js";
 
 interface DevProcessContext {
@@ -62,13 +63,13 @@ function formatCardContent(
 }
 
 function runAsClaudeUser(
-  command: string,
+  argv: string[],
   cwd: string,
   timeoutMs: number
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn("sudo", [
-      "-u", "claudeuser", "--", "bash", "-c", command,
+      "-u", "claudeuser", "--", ...argv,
     ], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -88,7 +89,7 @@ function runAsClaudeUser(
 
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error(`Command timed out after ${timeoutMs / 1000}s: ${command.slice(0, 100)}`));
+      reject(new Error(`Command timed out after ${timeoutMs / 1000}s: ${argv.join(" ").slice(0, 100)}`));
     }, timeoutMs);
 
     child.on("close", (code) => {
@@ -113,14 +114,14 @@ async function createWorktree(
   branchName: string
 ): Promise<void> {
   // Fetch latest from remote
-  await runAsClaudeUser(`git fetch ${config.baseRemote}`, repoDir, 60_000);
+  await runAsClaudeUser(["git", "fetch", config.baseRemote], repoDir, 60_000);
   // Create worktree with new branch based on configured remote/branch
   await runAsClaudeUser(
-    `git worktree add -b ${branchName} ${worktreeDir} ${config.baseRemote}/${config.baseBranch}`,
+    ["git", "worktree", "add", "-b", branchName, worktreeDir, `${config.baseRemote}/${config.baseBranch}`],
     repoDir,
     60_000
   );
-  console.log(`  Created worktree at ${worktreeDir} on branch ${branchName}`);
+  log.info(`  Created worktree at ${worktreeDir} on branch ${branchName}`);
 }
 
 async function cleanupWorktree(
@@ -129,20 +130,20 @@ async function cleanupWorktree(
 ): Promise<void> {
   try {
     await runAsClaudeUser(
-      `git worktree remove --force ${worktreeDir}`,
+      ["git", "worktree", "remove", "--force", worktreeDir],
       repoDir,
       30_000
     );
   } catch {
     // Fallback: force remove directory and prune
     try {
-      await runAsClaudeUser(`rm -rf ${worktreeDir}`, repoDir, 30_000);
-      await runAsClaudeUser("git worktree prune", repoDir, 30_000);
+      await runAsClaudeUser(["rm", "-rf", worktreeDir], repoDir, 30_000);
+      await runAsClaudeUser(["git", "worktree", "prune"], repoDir, 30_000);
     } catch (e) {
-      console.error(`  Failed to clean up worktree ${worktreeDir}:`, e);
+      log.error(`  Failed to clean up worktree ${worktreeDir}:`, e);
     }
   }
-  console.log(`  Cleaned up worktree ${worktreeDir}`);
+  log.info(`  Cleaned up worktree ${worktreeDir}`);
 }
 
 async function withDevServer<T>(
@@ -151,7 +152,8 @@ async function withDevServer<T>(
 ): Promise<T> {
   const devCmd = config.pipeline.devCommand;
   const readyPattern = config.pipeline.devReadyPattern;
-  console.log(`  Starting dev server: ${devCmd}...`);
+  // Config-provided command (operator-controlled) -- shell interpretation needed
+  log.info(`  Starting dev server: ${devCmd}...`);
   const devProcess: ChildProcess = spawn("sudo", [
     "-u", "claudeuser", "--", "bash", "-c", devCmd,
   ], {
@@ -198,7 +200,7 @@ async function withDevServer<T>(
     });
   });
 
-  console.log("  Dev server is ready");
+  log.info("  Dev server is ready");
 
   try {
     return await fn();
@@ -209,20 +211,21 @@ async function withDevServer<T>(
     if (!devProcess.killed) {
       devProcess.kill("SIGKILL");
     }
-    console.log("  Dev server stopped");
+    log.info("  Dev server stopped");
   }
 }
 
 async function runTestCommands(worktreeDir: string): Promise<void> {
   const commands = config.pipeline.testCommands;
   if (commands.length === 0) {
-    console.log("  No test commands configured, skipping tests");
+    log.info("  No test commands configured, skipping tests");
     return;
   }
   for (const cmd of commands) {
-    console.log(`  Running: ${cmd}...`);
-    await runAsClaudeUser(cmd, worktreeDir, config.timeouts.testMs);
-    console.log(`  Passed: ${cmd}`);
+    // Config-provided command (operator-controlled) -- shell interpretation needed
+    log.info(`  Running: ${cmd}...`);
+    await runAsClaudeUser(["bash", "-c", cmd], worktreeDir, config.timeouts.testMs);
+    log.info(`  Passed: ${cmd}`);
   }
 }
 
@@ -231,20 +234,20 @@ async function gitCommitAndPush(
   branchName: string,
   cardName: string
 ): Promise<void> {
-  await runAsClaudeUser("git add -A", worktreeDir, 30_000);
+  await runAsClaudeUser(["git", "add", "-A"], worktreeDir, 30_000);
   const commitMsg = `feat: ${cardName}`;
   const author = `${config.botName} AI <${config.botName.toLowerCase()}-ai@noreply>`;
   await runAsClaudeUser(
-    `git commit --author="${author}" -m "${commitMsg.replace(/"/g, '\\"')}"`,
+    ["git", "commit", `--author=${author}`, "-m", commitMsg],
     worktreeDir,
     30_000
   );
   await runAsClaudeUser(
-    `git push -u ${config.baseRemote} ${branchName}`,
+    ["git", "push", "-u", config.baseRemote, branchName],
     worktreeDir,
     60_000
   );
-  console.log(`  Committed and pushed to ${branchName}`);
+  log.info(`  Committed and pushed to ${branchName}`);
 }
 
 async function createPullRequest(
@@ -255,12 +258,12 @@ async function createPullRequest(
   const title = card.name;
   const body = `Trello: ${card.url}`;
   const { stdout } = await runAsClaudeUser(
-    `gh pr create --title "${title.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}"`,
+    ["gh", "pr", "create", "--draft", "--title", title, "--body", body],
     worktreeDir,
     60_000
   );
   const prUrl = stdout.trim();
-  console.log(`  Created PR: ${prUrl}`);
+  log.info(`  Created PR: ${prUrl}`);
   return prUrl;
 }
 
@@ -271,13 +274,13 @@ export async function processDevCard(
   const branchName = `${config.botName.toLowerCase()}-dev/${sanitizeBranchName(card.name)}`;
   const worktreeDir = `${config.worktreeBaseDir}/${card.id}`;
 
-  console.log(`[DEV] Processing card: ${card.name} (${card.id})`);
-  console.log(`  Branch: ${branchName}`);
-  console.log(`  Worktree: ${worktreeDir}`);
+  log.info(`[DEV] Processing card: ${card.name} (${card.id})`);
+  log.info(`  Branch: ${branchName}`);
+  log.info(`  Worktree: ${worktreeDir}`);
 
   // 1. Move card to developing list immediately
   await moveCard(card.id, ctx.processingListId);
-  console.log("  Moved to developing list");
+  log.info("  Moved to developing list");
 
   try {
     // 2. Fetch comments and attachments
@@ -291,16 +294,16 @@ export async function processDevCard(
     await createWorktree(config.repoDir, worktreeDir, branchName);
 
     // 4. Run dev implementation
-    console.log(`  Running ${config.botName} dev...`);
+    log.info(`  Running ${config.botName} dev...`);
     const claudeOutput = await runClaudeDev(cardContent, worktreeDir);
-    console.log(`  ${config.botName} dev produced output (${claudeOutput.length} chars)`);
+    log.info(`  ${config.botName} dev produced output (${claudeOutput.length} chars)`);
 
     // 5. Post Claude's output as comment (truncated for Trello limit)
     const truncatedOutput = claudeOutput.length > 15000
       ? claudeOutput.slice(0, 15000) + "\n\n... (output truncated)"
       : claudeOutput;
     await addComment(card.id, `**${config.botName} Dev Output:**\n\n${truncatedOutput}`);
-    console.log("  Posted Claude output as comment");
+    log.info("  Posted Claude output as comment");
 
     // 6. Run dev server (if configured) and tests
     if (config.pipeline.devCommand) {
@@ -319,26 +322,36 @@ export async function processDevCard(
 
     // 10. Attach PR URL to card
     await addAttachment(card.id, prUrl, "Pull Request");
-    console.log("  Attached PR to card");
+    log.info("  Attached PR to card");
 
     // 11. Move card to done list
     await moveCard(card.id, ctx.doneListId);
-    console.log("  Moved to task developed list");
+    log.info("  Moved to task developed list");
 
-    // 12. Mark as processed
+    // 12. Mark as processed and clear attempts
     await markDevCardProcessed(card.id);
-    console.log(`[DEV] Done: ${card.name}`);
+    await clearDevCardAttempts(card.id);
+    log.info(`[DEV] Done: ${card.name}`);
   } catch (err) {
-    console.error(`[DEV] Error processing card ${card.id}:`, err);
+    log.error(`[DEV] Error processing card ${card.id}:`, err);
+    const runId = `${Date.now()}-${card.id}`;
     const errMsg = err instanceof Error ? err.message : String(err);
     await addComment(
       card.id,
-      `**${config.botName} error:**\n\n${errMsg.slice(0, 5000)}`
-    ).catch((e) => console.error("  Failed to post error comment:", e));
-    // Move card back to source list so it can be retried
-    await moveCard(card.id, ctx.sourceListId).catch((e) =>
-      console.error("  Failed to move card back:", e)
-    );
+      `**${config.botName} error (run ${runId}):**\n\n${errMsg.slice(0, 5000)}`
+    ).catch((e) => log.error("  Failed to post error comment:", e));
+    const attempts = await incrementDevCardAttempts(card.id).catch(() => 0);
+    const failedListId = config.trello.lists.failed;
+    if (failedListId && attempts >= config.maxCardAttempts) {
+      log.error(`  Card ${card.id} failed ${attempts} times, moving to failed list`);
+      await moveCard(card.id, failedListId).catch((e) =>
+        log.error("  Failed to move card to failed list:", e)
+      );
+    } else {
+      await moveCard(card.id, ctx.sourceListId).catch((e) =>
+        log.error("  Failed to move card back:", e)
+      );
+    }
   } finally {
     // Always clean up worktree
     await cleanupWorktree(config.repoDir, worktreeDir);

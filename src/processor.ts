@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { log } from "./logger.js";
 import { config } from "./config.js";
 import {
   getCardActions,
@@ -10,7 +11,7 @@ import {
   type TrelloComment,
   type TrelloAttachment,
 } from "./trello.js";
-import { markCardProcessed } from "./state.js";
+import { markCardProcessed, incrementCardAttempts, clearCardAttempts } from "./state.js";
 import { runClaude } from "./claude.js";
 
 function sanitizeFilename(name: string): string {
@@ -69,11 +70,11 @@ export async function processCard(
   card: TrelloCard,
   ctx: ProcessContext
 ): Promise<void> {
-  console.log(`Processing card: ${card.name} (${card.id})`);
+  log.info(`Processing card: ${card.name} (${card.id})`);
 
   // 1. Move card to reviewing list immediately
   await moveCard(card.id, ctx.reviewingListId);
-  console.log(`  Moved to reviewing list`);
+  log.info(`  Moved to reviewing list`);
 
   try {
     // 2. Fetch comments + attachments
@@ -89,33 +90,43 @@ export async function processCard(
     const filename = `${card.id}-${sanitizeFilename(card.name)}.txt`;
     const filepath = path.join(config.logsDir, filename);
     await fs.writeFile(filepath, content);
-    console.log(`  Wrote log: ${filename}`);
+    log.info(`  Wrote log: ${filename}`);
 
     // 4. Run Claude to generate implementation plan
-    console.log(`  Running ${config.botName} against ${config.repoDir}...`);
+    log.info(`  Running ${config.botName} against ${config.repoDir}...`);
     const plan = await runClaude(filepath, config.repoDir);
-    console.log(`  ${config.botName} produced plan (${plan.length} chars)`);
+    log.info(`  ${config.botName} produced plan (${plan.length} chars)`);
 
     // 5. Post plan as comment on the Trello card
     await addComment(card.id, plan);
-    console.log(`  Posted plan as comment on card`);
+    log.info(`  Posted plan as comment on card`);
 
     // 6. Move card to reviewed list
     await moveCard(card.id, ctx.destListId);
-    console.log(`  Moved to reviewed list`);
+    log.info(`  Moved to reviewed list`);
 
-    // 7. Mark as processed
+    // 7. Mark as processed and clear attempts
     await markCardProcessed(card.id);
+    await clearCardAttempts(card.id);
   } catch (err) {
-    console.error(`[PLAN] Error processing card ${card.id}:`, err);
+    log.error(`[PLAN] Error processing card ${card.id}:`, err);
+    const runId = `${Date.now()}-${card.id}`;
     const errMsg = err instanceof Error ? err.message : String(err);
     await addComment(
       card.id,
-      `**${config.botName} error:**\n\n${errMsg.slice(0, 5000)}`
-    ).catch((e) => console.error("  Failed to post error comment:", e));
-    // Move card back to source list so it can be retried
-    await moveCard(card.id, ctx.sourceListId).catch((e) =>
-      console.error("  Failed to move card back:", e)
-    );
+      `**${config.botName} error (run ${runId}):**\n\n${errMsg.slice(0, 5000)}`
+    ).catch((e) => log.error("  Failed to post error comment:", e));
+    const attempts = await incrementCardAttempts(card.id).catch(() => 0);
+    const failedListId = config.trello.lists.failed;
+    if (failedListId && attempts >= config.maxCardAttempts) {
+      log.error(`  Card ${card.id} failed ${attempts} times, moving to failed list`);
+      await moveCard(card.id, failedListId).catch((e) =>
+        log.error("  Failed to move card to failed list:", e)
+      );
+    } else {
+      await moveCard(card.id, ctx.sourceListId).catch((e) =>
+        log.error("  Failed to move card back:", e)
+      );
+    }
   }
 }

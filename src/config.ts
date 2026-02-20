@@ -8,7 +8,6 @@ export interface Config {
   botName: string;
   apiKey: string;
   token: string;
-  githubToken: string;
   baseBranch: string;
   baseRemote: string;
   trello: {
@@ -21,11 +20,13 @@ export interface Config {
       taskDevelopment: string;
       developing: string;
       taskDeveloped: string;
+      failed?: string;
     };
   };
   github: { repoUrl: string };
   repoDir: string;
   worktreeBaseDir: string;
+  maxCardAttempts: number;
   urlAllowList: string[];
   prompts: { revisionTemplate: string; developmentTemplate: string };
   pipeline: {
@@ -62,13 +63,10 @@ function loadConfig(): Config {
 
   const apiKey = requireEnv("TRELLO_API_KEY");
   const token = requireEnv("TRELLO_TOKEN");
-  const githubToken = process.env.GITHUB_TOKEN || "";
-
   const cfg: Config = {
     botName: raw.botName || "Sergio",
     apiKey,
     token,
-    githubToken,
     baseBranch: raw.baseBranch || "main",
     baseRemote: raw.baseRemote || "origin",
     trello: {
@@ -81,11 +79,13 @@ function loadConfig(): Config {
         taskDevelopment: raw.trello?.lists?.taskDevelopment || "",
         developing: raw.trello?.lists?.developing || "",
         taskDeveloped: raw.trello?.lists?.taskDeveloped || "",
+        failed: raw.trello?.lists?.failed || undefined,
       },
     },
     github: { repoUrl: raw.github?.repoUrl || "" },
-    repoDir: raw.repoDir || "/opt/gtb-platform",
-    worktreeBaseDir: raw.worktreeBaseDir || "/opt/gtb-worktrees",
+    repoDir: raw.repoDir || "/opt/repo",
+    worktreeBaseDir: raw.worktreeBaseDir || "/opt/worktrees",
+    maxCardAttempts: raw.maxCardAttempts ?? 3,
     urlAllowList: raw.urlAllowList || [],
     prompts: {
       revisionTemplate: raw.prompts?.revisionTemplate || "prompts/revision.md",

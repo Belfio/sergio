@@ -8,13 +8,12 @@ Below is a Trello card with an implementation plan in its comments. Your job is 
 4. Push this branch to remote 
 5. Implement ALL the code changes described in the plan
 6. Make the changes directly in the files — create new files or modify existing ones as needed
-7. Commit all, raise a PR and place it in DRAFT status.
+7. Commit all changes. The pipeline will push and create the PR automatically.
 
 
 IMPORTANT RULES:
 
-- Do NOT run any dev servers or deployment commands
-- Do NOT run tests — those will be run separately
+- Do NOT start dev servers, run deployment commands, or run tests -- the pipeline handles these steps automatically after your code changes.
 - Focus on writing clean, correct code that follows the existing patterns in the codebase
 - If a CLAUDE.md file exists at the repo root, follow its conventions
 - If the plan references files, read them first to understand existing patterns before modifying

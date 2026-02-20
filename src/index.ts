@@ -1,4 +1,4 @@
-import "./logger.js";
+import { log } from "./logger.js";
 import { config } from "./config.js";
 import { getListCards } from "./trello.js";
 import { loadProcessedCards, isCardProcessed, unmarkCardProcessed } from "./state.js";
@@ -12,7 +12,7 @@ async function poll(sourceListId: string, reviewingListId: string, destListId: s
 
     for (const card of cards) {
       if (isCardProcessed(card.id)) {
-        console.log(`  Card "${card.name}" moved back for revision, re-processing`);
+        log.info(`  Card "${card.name}" moved back for revision, re-processing`);
         await unmarkCardProcessed(card.id);
       }
     }
@@ -20,21 +20,21 @@ async function poll(sourceListId: string, reviewingListId: string, destListId: s
     const newCards = cards.filter((c) => !isCardProcessed(c.id));
 
     if (newCards.length === 0) {
-      console.log(`[${new Date().toISOString()}] No new cards in task revision`);
+      log.info(`[${new Date().toISOString()}] No new cards in task revision`);
       return;
     }
 
-    console.log(`[${new Date().toISOString()}] Found ${newCards.length} new card(s)`);
+    log.info(`[${new Date().toISOString()}] Found ${newCards.length} new card(s)`);
 
     for (const card of newCards) {
       try {
         await processCard(card, { sourceListId, reviewingListId, destListId });
       } catch (err) {
-        console.error(`Error processing card ${card.id} (${card.name}):`, err);
+        log.error(`Error processing card ${card.id} (${card.name}):`, err);
       }
     }
   } catch (err) {
-    console.error("Error during poll:", err);
+    log.error("Error during poll:", err);
   }
 }
 
@@ -46,7 +46,7 @@ async function pollDev(
   devDoneListId: string
 ) {
   if (devInProgress) {
-    console.log(`[${new Date().toISOString()}] Dev already in progress, skipping`);
+    log.info(`[${new Date().toISOString()}] Dev already in progress, skipping`);
     return;
   }
 
@@ -55,7 +55,7 @@ async function pollDev(
 
     for (const card of cards) {
       if (isDevCardProcessed(card.id)) {
-        console.log(`  Dev card "${card.name}" moved back for re-processing`);
+        log.info(`  Dev card "${card.name}" moved back for re-processing`);
         await unmarkDevCardProcessed(card.id);
       }
     }
@@ -63,11 +63,11 @@ async function pollDev(
     const newCards = cards.filter((c) => !isDevCardProcessed(c.id));
 
     if (newCards.length === 0) {
-      console.log(`[${new Date().toISOString()}] No new dev cards`);
+      log.info(`[${new Date().toISOString()}] No new dev cards`);
       return;
     }
 
-    console.log(`[${new Date().toISOString()}] Found ${newCards.length} dev card(s)`);
+    log.info(`[${new Date().toISOString()}] Found ${newCards.length} dev card(s)`);
 
     const card = newCards[0];
     devInProgress = true;
@@ -78,26 +78,26 @@ async function pollDev(
         doneListId: devDoneListId,
       });
     } catch (err) {
-      console.error(`Error processing dev card ${card.id} (${card.name}):`, err);
+      log.error(`Error processing dev card ${card.id} (${card.name}):`, err);
     } finally {
       devInProgress = false;
     }
   } catch (err) {
-    console.error("Error during dev poll:", err);
+    log.error("Error during dev poll:", err);
   }
 }
 
 async function main() {
-  console.log(`${config.botName} starting...`);
+  log.info(`${config.botName} starting...`);
 
   await Promise.all([loadProcessedCards(), loadDevProcessedCards()]);
 
   const { lists } = config.trello;
 
-  console.log(`Board ID: ${config.trello.boardId}`);
-  console.log(`Repo dir: ${config.repoDir}`);
-  console.log(`Worktree base dir: ${config.worktreeBaseDir}`);
-  console.log(`Polling every ${config.pollIntervalMs / 1000}s\n`);
+  log.info(`Board ID: ${config.trello.boardId}`);
+  log.info(`Repo dir: ${config.repoDir}`);
+  log.info(`Worktree base dir: ${config.worktreeBaseDir}`);
+  log.info(`Polling every ${config.pollIntervalMs / 1000}s\n`);
 
   await Promise.all([
     poll(lists.taskRevision, lists.reviewing, lists.todoReviewed),
@@ -110,7 +110,7 @@ async function main() {
   }, config.pollIntervalMs);
 
   const shutdown = () => {
-    console.log("\nShutting down...");
+    log.info("\nShutting down...");
     clearInterval(interval);
     process.exit(0);
   };

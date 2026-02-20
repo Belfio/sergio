@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Network-level URL allow list enforcement for claudeuser
 # Reads sergio.config.json and restricts outbound access
+# Uses a dedicated chain so we never flush other OUTPUT rules
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/../sergio.config.json"
@@ -17,27 +18,33 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-echo "Setting up firewall rules for claudeuser..."
+CHAIN="SERGIO_OUTPUT"
 
-# Flush existing rules for claudeuser
-iptables -F OUTPUT 2>/dev/null || true
+echo "Setting up firewall rules for claudeuser (chain: $CHAIN)..."
+
+# Create or flush our dedicated chain
+iptables -N "$CHAIN" 2>/dev/null || iptables -F "$CHAIN"
+
+# Remove any existing jump rule, then add a fresh one
+iptables -D OUTPUT -m owner --uid-owner claudeuser -j "$CHAIN" 2>/dev/null || true
+iptables -A OUTPUT -m owner --uid-owner claudeuser -j "$CHAIN"
 
 # Always allow localhost
-iptables -A OUTPUT -m owner --uid-owner claudeuser -d 127.0.0.0/8 -j ACCEPT
+iptables -A "$CHAIN" -d 127.0.0.0/8 -j ACCEPT
 
 # Allow DNS (needed to resolve hostnames)
-iptables -A OUTPUT -m owner --uid-owner claudeuser -p udp --dport 53 -j ACCEPT
-iptables -A OUTPUT -m owner --uid-owner claudeuser -p tcp --dport 53 -j ACCEPT
+iptables -A "$CHAIN" -p udp --dport 53 -j ACCEPT
+iptables -A "$CHAIN" -p tcp --dport 53 -j ACCEPT
 
 # Allow Trello API
 for ip in $(dig +short api.trello.com); do
-  iptables -A OUTPUT -m owner --uid-owner claudeuser -d "$ip" -p tcp --dport 443 -j ACCEPT
+  iptables -A "$CHAIN" -d "$ip" -p tcp --dport 443 -j ACCEPT
 done
 
 # Allow GitHub
 for host in api.github.com github.com; do
   for ip in $(dig +short "$host"); do
-    iptables -A OUTPUT -m owner --uid-owner claudeuser -d "$ip" -p tcp --dport 443 -j ACCEPT
+    iptables -A "$CHAIN" -d "$ip" -p tcp --dport 443 -j ACCEPT
   done
 done
 
@@ -61,16 +68,16 @@ for host in $URLS; do
   for ip in $(dig +short "$host" 2>/dev/null); do
     # Skip non-IP responses (CNAME records etc)
     if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      iptables -A OUTPUT -m owner --uid-owner claudeuser -d "$ip" -p tcp --dport 443 -j ACCEPT
-      iptables -A OUTPUT -m owner --uid-owner claudeuser -d "$ip" -p tcp --dport 80 -j ACCEPT
+      iptables -A "$CHAIN" -d "$ip" -p tcp --dport 443 -j ACCEPT
+      iptables -A "$CHAIN" -d "$ip" -p tcp --dport 80 -j ACCEPT
     fi
   done
 done
 
-# Drop everything else from claudeuser
-iptables -A OUTPUT -m owner --uid-owner claudeuser -j DROP
+# Drop everything else
+iptables -A "$CHAIN" -j DROP
 
 echo "Firewall rules applied. claudeuser can only reach allowed hosts."
 echo ""
-echo "To verify: sudo iptables -L OUTPUT -v -n"
-echo "To remove: sudo iptables -F OUTPUT"
+echo "To verify: sudo iptables -L $CHAIN -v -n"
+echo "To remove: sudo iptables -F $CHAIN && sudo iptables -D OUTPUT -m owner --uid-owner claudeuser -j $CHAIN && sudo iptables -X $CHAIN"
