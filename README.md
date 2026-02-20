@@ -18,7 +18,7 @@
 ### Trello AI teammate that reviews the Product Manager PRD and designs  trello cards with knowledge about your codebase, helps you makeing a plan and initiates the PR.
 Developers have AI PR reviews. Product Manager should have the same support.
 
-[Starting from Scratch](#starting-from-scratch) · [Getting Started](#getting-started) · [How It Works](#how-it-works) · [Configuration](#configuration)
+[Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
 </div>
 
@@ -163,7 +163,138 @@ From here, follow the [Getting Started](#getting-started) section below.
 
 ---
 
-## Getting Started
+## Local Install (macOS)
+
+Want to run Sergio on your Mac for development or testing? Here's how.
+
+### Prerequisites
+
+Install [Homebrew](https://brew.sh/) if you don't have it, then:
+
+```bash
+# Node.js, Git, GitHub CLI
+brew install node git gh
+
+# Claude CLI
+npm install -g @anthropic-ai/claude-code
+
+# Authenticate the CLIs
+gh auth login
+claude  # Follow the Anthropic login flow
+```
+
+You also need:
+- A [Trello API key and token](https://trello.com/power-ups/admin)
+- An [Anthropic API key](https://console.anthropic.com/)
+- A [GitHub personal access token](https://github.com/settings/tokens) (with `repo` scope)
+
+### Clone and install
+
+```bash
+git clone https://github.com/Belfio/sergio.git ~/sergio
+cd ~/sergio
+npm install
+```
+
+### Create the sandbox user
+
+Sergio runs Claude sessions as a separate `claudeuser` account for isolation. On macOS:
+
+```bash
+# Create the user (requires admin password)
+sudo dscl . -create /Users/claudeuser
+sudo dscl . -create /Users/claudeuser UserShell /bin/zsh
+sudo dscl . -create /Users/claudeuser UniqueID 599
+sudo dscl . -create /Users/claudeuser PrimaryGroupID 20
+sudo dscl . -create /Users/claudeuser NFSHomeDirectory /var/empty
+
+# Allow your user to sudo as claudeuser without a password
+sudo tee /etc/sudoers.d/sergio <<< "$USER ALL=(claudeuser) NOPASSWD: ALL"
+sudo chmod 0440 /etc/sudoers.d/sergio
+
+# Verify it works
+sudo -u claudeuser whoami   # Should print: claudeuser
+```
+
+> **Note:** Pick a UniqueID that isn't already taken. Check with `dscl . -list /Users UniqueID | sort -n -k2`.
+
+### Run setup
+
+```bash
+npm run setup
+```
+
+The wizard will:
+- Check dependencies (Node, Git, Claude CLI, GitHub CLI)
+- Collect your API keys and write `.env`
+- Create a Trello board with 7 workflow lists (or connect to an existing one)
+- Generate `sergio.config.json`
+
+When it asks for `repoDir`, point it to the repo you want Sergio to work on (e.g. `~/Work/my-project`). For `worktreeBaseDir`, use something like `~/sergio-worktrees`.
+
+### Start
+
+```bash
+npm start
+```
+
+Sergio polls your Trello board every 60 seconds. Press `Ctrl+C` to stop.
+
+### macOS-specific notes
+
+| Topic | Linux | macOS |
+|-------|-------|-------|
+| **Firewall** | `scripts/setup-firewall.sh` (iptables) | Not available — iptables doesn't exist on macOS. The prompt-level URL policy still applies. For local dev this is usually fine. |
+| **Service manager** | systemd (`sergio.service`) | Use `launchd` if you want Sergio to run on boot — see below. |
+| **User creation** | `useradd` (handled by setup wizard) | `dscl` (manual, see above) — the setup wizard's `useradd` will fail on macOS. |
+
+### Optional: run as a launchd service
+
+Create `~/Library/LaunchAgents/com.sergio.bot.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sergio.bot</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/sergio</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/npx</string>
+        <string>tsx</string>
+        <string>src/index.ts</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/sergio/logs/launchd-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/sergio/logs/launchd-stderr.log</string>
+</dict>
+</plist>
+```
+
+Then:
+
+```bash
+# Replace YOUR_USERNAME in the plist, then:
+launchctl load ~/Library/LaunchAgents/com.sergio.bot.plist
+
+# Check status
+launchctl list | grep sergio
+
+# Stop
+launchctl unload ~/Library/LaunchAgents/com.sergio.bot.plist
+```
+
+---
+
+## Getting Started (Linux)
 
 ### Prerequisites
 
