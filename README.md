@@ -319,8 +319,7 @@ launchctl unload ~/Library/LaunchAgents/com.sergio.bot.plist
 ### Quick start
 
 ```bash
-
-# 1. Clone (as deploy user)
+# Clone and install
 git clone https://github.com/Belfio/sergio.git ~/sergio
 cd ~/sergio
 npm install
