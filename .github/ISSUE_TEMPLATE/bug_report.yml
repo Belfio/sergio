@@ -1,0 +1,45 @@
+name: Bug Report
+description: Report something that isn't working
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "Sergio fails to post a comment on the Trello card after review..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: "The review comment should appear on the card and the card should move to the Reviewing list."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a card in the TODO list
+        2. Wait for the poll cycle
+        3. Check the logs
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Paste any relevant logs (remove API keys/tokens first).
+      render: shell
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "v22.16.0"
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04 / macOS 15"
