@@ -325,15 +325,10 @@ git clone https://github.com/Belfio/sergio.git ~/sergio
 cd ~/sergio
 npm install
 
-# 2. Create sandbox user (needs sudo)
-sudo useradd --system --shell /bin/bash --create-home claudeuser
-echo 'deploy ALL=(claudeuser) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/sergio
-sudo chmod 0440 /etc/sudoers.d/sergio
-
-# 3. Run the interactive setup wizard (have your API keys ready)
+# 2. Run the interactive setup wizard (have your API keys ready)
 npm run setup
 
-# 4. Start
+# 3. Start
 npm start
 
 ```
