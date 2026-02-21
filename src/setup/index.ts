@@ -113,9 +113,10 @@ function ensureClaudeUser(): void {
     }
   }
 
-  // Ensure the deploy user can sudo as claudeuser without a password
+  // Ensure the current user can sudo as claudeuser without a password
   const sudoersFile = "/etc/sudoers.d/sergio";
-  const sudoersRule = "deploy ALL=(claudeuser) NOPASSWD: ALL";
+  const currentUser = process.env.USER || "sergio";
+  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD: ALL`;
   try {
     const existing = execFileSync("sudo", ["cat", sudoersFile], { encoding: "utf-8" }).trim();
     if (existing === sudoersRule) {
@@ -126,7 +127,7 @@ function ensureClaudeUser(): void {
     // File doesn't exist yet
   }
 
-  console.log("  Configuring sudoers rule for deploy → claudeuser...");
+  console.log(`  Configuring sudoers rule for ${currentUser} → claudeuser...`);
   try {
     execFileSync("bash", ["-c", `echo '${sudoersRule}' | sudo tee ${sudoersFile} > /dev/null && sudo chmod 0440 ${sudoersFile}`], { stdio: "inherit" });
     console.log("  sudoers rule created at /etc/sudoers.d/sergio");

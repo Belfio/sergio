@@ -150,13 +150,12 @@ ssh root@YOUR_SERVER_IP
 ### 3. Initial setup and install Claude
 
 ```bash
-# Create a deploy user (don't run Sergio as root)
-adduser deploy
-# You can set a password
-usermod -aG sudo deploy
-mkdir -p /home/deploy/.ssh
-cp ~/.ssh/authorized_keys /home/deploy/.ssh/
-chown -R deploy:deploy /home/deploy/.ssh
+# Create the sergio user (don't run as root)
+adduser sergio
+usermod -aG sudo sergio
+mkdir -p /home/sergio/.ssh
+cp ~/.ssh/authorized_keys /home/sergio/.ssh/
+chown -R sergio:sergio /home/sergio/.ssh
 
 # Install Node.js and Git
 curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
@@ -165,8 +164,8 @@ apt-get install -y nodejs git
 # Install Claude CLI
 npm install -g @anthropic-ai/claude-code
 
-# Switch to deploy user
-su - deploy
+# Switch to sergio user
+su - sergio
 ```
 
 From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below.
@@ -333,7 +332,7 @@ npm start
 ### What the setup wizard does
 
 - **Checks system dependencies** — Node, Git, [Claude CLI](https://docs.anthropic.com/en/docs/claude-code), [GitHub CLI](https://cli.github.com/) — and offers to install any that are missing
-- **Creates a `claudeuser`** system account for sandboxed Claude execution, plus a sudoers rule so `deploy` can run commands as `claudeuser`
+- **Creates a `claudeuser`** system account for sandboxed Claude execution, plus a sudoers rule so `sergio` can run commands as `claudeuser` (see [Security](#security))
 - **Collects your API keys** — Anthropic, Trello, GitHub
 - **Creates a Trello board** with 7 pre-configured workflow lists (or connects to an existing board)
 - **Generates config files** — `sergio.config.json` and `.env`
@@ -436,16 +435,25 @@ Add your coding standards, framework conventions, or architectural constraints d
 
 ## Security
 
-### Sandboxed execution
+### Two-user architecture
 
-Claude CLI runs under a dedicated `claudeuser` system account, isolated from your deploy user. This limits what Claude can access on the filesystem. The `deploy` user executes Claude sessions via `sudo -u claudeuser`, which requires a sudoers rule created automatically by `npm run setup`:
+Sergio uses two OS users to separate the bot process from the AI it controls:
+
+| User | Role | Has access to |
+|------|------|--------------|
+| `sergio` | Runs the Node.js polling loop, owns the code, config, and `.env` secrets | API keys, Trello tokens, sergio.config.json |
+| `claudeuser` | Sandboxed account that runs Claude CLI sessions | Only the repo/worktree it's working in |
+
+**Why two users?** Claude CLI runs with `--dangerously-skip-permissions`, which gives it full shell access. By running it as `claudeuser` — a separate OS account with no access to secrets or the Sergio process — a prompt injection or misbehaving session is contained to the worktree. It cannot read your API keys, kill the bot, or modify its own prompts.
+
+The `sergio` user spawns Claude sessions via `sudo -u claudeuser`, which requires a sudoers rule created automatically by `npm run setup`:
 
 ```
 # /etc/sudoers.d/sergio
-deploy ALL=(claudeuser) NOPASSWD: ALL
+sergio ALL=(claudeuser) NOPASSWD: ALL
 ```
 
-This allows `deploy` to run commands as `claudeuser` without a password, while keeping the two accounts separate.
+This allows `sergio` to run commands as `claudeuser` without a password, while keeping the two accounts fully separate.
 
 ### URL allow list
 
@@ -465,7 +473,7 @@ Do NOT fetch, read, or access any URL not on this list.
 sudo bash scripts/setup-firewall.sh
 ```
 
-Configures `iptables` so `claudeuser` can only reach Trello, GitHub, and your allow-listed hosts. All other outbound traffic is dropped.
+Configures `iptables` so `claudeuser` can only reach Trello, GitHub, and your allow-listed hosts. All other outbound traffic is dropped. Combined with the user separation above, this means Claude cannot exfiltrate secrets even if it gains shell access — it has no secrets to read and no network path to send them.
 
 ---
 

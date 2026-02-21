@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-# Runs as deploy; uses sudo to execute Claude CLI as claudeuser.
+# Runs as sergio; uses sudo to execute Claude CLI as claudeuser.
 # Requires: /etc/sudoers.d/sergio (created by npm run setup)
-User=deploy
+User=sergio
 WorkingDirectory=%h/sergio
 EnvironmentFile=%h/sergio/.env
 ExecStart=/usr/bin/npx tsx src/index.ts
