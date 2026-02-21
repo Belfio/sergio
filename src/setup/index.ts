@@ -1,7 +1,7 @@
 import { execFileSync } from "child_process";
 import fs from "fs/promises";
 import path from "path";
-import { collectSetupAnswers, ask, closePrompts } from "./prompts.js";
+import { collectSetupAnswers, ask, closePrompts, type PreviousValues } from "./prompts.js";
 import { setupTrelloBoard, fetchBoardLists, type BoardSetupResult } from "./trello-setup.js";
 
 const CONFIG_FILE = path.resolve("sergio.config.json");
@@ -146,6 +146,41 @@ async function loadExistingConfig(): Promise<any | null> {
   }
 }
 
+async function loadExistingEnv(): Promise<Record<string, string>> {
+  try {
+    const data = await fs.readFile(ENV_FILE, "utf-8");
+    const env: Record<string, string> = {};
+    for (const line of data.split("\n")) {
+      const match = line.match(/^([A-Z_]+)=(.*)$/);
+      if (match) env[match[1]] = match[2];
+    }
+    return env;
+  } catch {
+    return {};
+  }
+}
+
+function buildPreviousValues(config: any | null, env: Record<string, string>): PreviousValues {
+  return {
+    botName: config?.botName,
+    anthropicApiKey: env.ANTHROPIC_API_KEY,
+    trelloApiKey: env.TRELLO_API_KEY,
+    trelloToken: env.TRELLO_TOKEN,
+    githubToken: env.GITHUB_TOKEN,
+    repoUrl: config?.github?.repoUrl,
+    repoDir: config?.repoDir,
+    worktreeBaseDir: config?.worktreeBaseDir,
+    baseBranch: config?.baseBranch,
+    baseRemote: config?.baseRemote,
+    devCommand: config?.pipeline?.devCommand,
+    devReadyPattern: config?.pipeline?.devReadyPattern,
+    testCommands: config?.pipeline?.testCommands,
+    urlAllowList: config?.urlAllowList,
+    revisionTemplate: config?.prompts?.revisionTemplate,
+    developmentTemplate: config?.prompts?.developmentTemplate,
+  };
+}
+
 async function writeEnvFile(
   anthropicApiKey: string,
   apiKey: string,
@@ -231,6 +266,8 @@ async function main() {
 
   // Step 3: Config setup
   const existing = await loadExistingConfig();
+  const env = await loadExistingEnv();
+  const prev = buildPreviousValues(existing, env);
 
   if (existing) {
     console.log("Existing sergio.config.json found.\n");
@@ -240,20 +277,20 @@ async function main() {
     );
 
     if (action === "all") {
-      await runFullSetup();
+      await runFullSetup(prev);
     } else {
       await runPartialSetup(existing, action);
     }
   } else {
     console.log("No existing config found. Running full setup.\n");
-    await runFullSetup();
+    await runFullSetup(prev);
   }
 
   closePrompts();
 }
 
-async function runFullSetup(): Promise<void> {
-  const answers = await collectSetupAnswers();
+async function runFullSetup(prev: PreviousValues = {}): Promise<void> {
+  const answers = await collectSetupAnswers(prev);
 
   // Create Trello board
   const createBoard = await ask("Create a new Trello board? (y/n)", "y");

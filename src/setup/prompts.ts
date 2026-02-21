@@ -6,8 +6,14 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
-export function ask(question: string, defaultValue?: string): Promise<string> {
-  const suffix = defaultValue ? ` (${defaultValue})` : "";
+function mask(value: string): string {
+  if (value.length <= 8) return "****";
+  return value.slice(0, 4) + "..." + value.slice(-4);
+}
+
+export function ask(question: string, defaultValue?: string, secret = false): Promise<string> {
+  const display = defaultValue ? (secret ? mask(defaultValue) : defaultValue) : undefined;
+  const suffix = display ? ` (${display})` : "";
   return new Promise((resolve) => {
     rl.question(`${question}${suffix}: `, (answer) => {
       resolve(answer.trim() || defaultValue || "");
@@ -38,41 +44,64 @@ export interface SetupAnswers {
   developmentTemplate: string;
 }
 
-export async function collectSetupAnswers(): Promise<SetupAnswers> {
-  const botName = await ask("Bot name", "Sergio");
-  const anthropicApiKey = await ask("Anthropic API Key (for Claude CLI)");
-  const trelloApiKey = await ask("Trello API Key");
-  const trelloToken = await ask("Trello Token");
-  const githubToken = await ask("GitHub Token (optional)");
-  const repoUrl = await ask("GitHub repository URL");
-  const cwd = process.cwd();
-  const repoDir = await ask("Repo directory", cwd);
-  const worktreeBaseDir = await ask("Worktree base directory", path.resolve(cwd, "..", "worktrees"));
-  const baseBranch = await ask("Base branch", "main");
-  const baseRemote = await ask("Base remote", "origin");
+export interface PreviousValues {
+  botName?: string;
+  anthropicApiKey?: string;
+  trelloApiKey?: string;
+  trelloToken?: string;
+  githubToken?: string;
+  repoUrl?: string;
+  repoDir?: string;
+  worktreeBaseDir?: string;
+  baseBranch?: string;
+  baseRemote?: string;
+  devCommand?: string;
+  devReadyPattern?: string;
+  testCommands?: string[];
+  urlAllowList?: string[];
+  revisionTemplate?: string;
+  developmentTemplate?: string;
+}
 
-  const devCommand = await ask("Dev server command (optional, e.g. 'npx sst dev', leave empty to skip)", "");
+export async function collectSetupAnswers(prev: PreviousValues = {}): Promise<SetupAnswers> {
+  const cwd = process.cwd();
+
+  const botName = await ask("Bot name", prev.botName || "Sergio");
+  const anthropicApiKey = await ask("Anthropic API Key (for Claude CLI)", prev.anthropicApiKey, true);
+  const trelloApiKey = await ask("Trello API Key", prev.trelloApiKey, true);
+  const trelloToken = await ask("Trello Token", prev.trelloToken, true);
+  const githubToken = await ask("GitHub Token (optional)", prev.githubToken, true);
+  const repoUrl = await ask("GitHub repository URL", prev.repoUrl);
+  const repoDir = await ask("Repo directory", prev.repoDir || cwd);
+  const worktreeBaseDir = await ask("Worktree base directory", prev.worktreeBaseDir || path.resolve(cwd, "..", "worktrees"));
+  const baseBranch = await ask("Base branch", prev.baseBranch || "main");
+  const baseRemote = await ask("Base remote", prev.baseRemote || "origin");
+
+  const devCommand = await ask("Dev server command (optional, e.g. 'npx sst dev', leave empty to skip)", prev.devCommand || "");
   let devReadyPattern = "";
   if (devCommand) {
-    devReadyPattern = await ask("Dev server ready pattern (text to watch for)", "Complete");
+    devReadyPattern = await ask("Dev server ready pattern (text to watch for)", prev.devReadyPattern || "Complete");
   }
-  const testCommandsRaw = await ask("Test commands (comma-separated, optional, e.g. 'npx jest,npx playwright test')", "");
+  const testCommandsRaw = await ask(
+    "Test commands (comma-separated, optional, e.g. 'npx jest,npx playwright test')",
+    prev.testCommands?.join(", ") || ""
+  );
   const testCommands = testCommandsRaw
     ? testCommandsRaw.split(",").map((c) => c.trim()).filter(Boolean)
     : [];
 
-  const urlListRaw = await ask("URL allow list (comma-separated, or leave empty)");
+  const urlListRaw = await ask("URL allow list (comma-separated, or leave empty)", prev.urlAllowList?.join(", ") || undefined);
   const urlAllowList = urlListRaw
     ? urlListRaw.split(",").map((u) => u.trim()).filter(Boolean)
     : [];
 
   const revisionTemplate = await ask(
     "Revision prompt template path",
-    "prompts/revision.md"
+    prev.revisionTemplate || "prompts/revision.md"
   );
   const developmentTemplate = await ask(
     "Development prompt template path",
-    "prompts/development.md"
+    prev.developmentTemplate || "prompts/development.md"
   );
 
   return {
