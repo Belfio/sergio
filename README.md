@@ -15,8 +15,8 @@
 
 # Sergio AI
 
-### Trello AI teammate that reviews the Product Manager PRD and designs  trello cards with knowledge about your codebase, helps you makeing a plan and initiates the PR.
-Developers have AI PR reviews. Product Manager should have the same support.
+### Trello AI teammate that reviews trello cards with the Product Manager PRD and Figma designs with knowledge about your codebase, helps you makeing a development plan and initiates the PR github.
+Developers have AI PR reviews. Product Manager should have the same support with Sergio.
 
 [Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration)
 
