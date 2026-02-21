@@ -24,6 +24,12 @@ Developers have AI PR reviews. Product Manager should have the same support with
 
 ---
 
+## Support
+
+If you would like me to help you with the installation, please contact me on twitter @belfio or directly pay here: [stripe](https://buy.stripe.com/14AeVddVr0nA0xF5Oi67S00)
+
+---
+
 ### Why
 
 You have a team where a Product Manager designs and writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggest improvements and explain the implementation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to create a new Draft PR.
