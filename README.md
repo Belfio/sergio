@@ -110,7 +110,9 @@ The bot polls both pipelines concurrently. Planning takes minutes. Development c
 
 ## Starting from Scratch
 
-Don't have a server yet? Here's how to go from zero to a running Sergio instance for under $5/month.
+Don't have a server yet? Here's how to go from zero to a running Sergio instance for under $5/month. 
+Once you buy access to Hetzner as per step 1, you can ask your AI to read this repo and start the setup in your local machine.
+
 
 ### 1. Get a cheap VM
 
@@ -140,7 +142,7 @@ ssh root@YOUR_SERVER_IP
 
 
 ### 3. Initial setup and install Claude
-At this point you can ask Claude in your local machine to ssh into the Hatzner VPS and continue the setup, or do this yourself manually.
+
 ```bash
 # Create a deploy user (don't run Sergio as root)
 adduser deploy
