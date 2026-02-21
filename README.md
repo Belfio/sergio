@@ -159,7 +159,7 @@ apt-get install -y nodejs git
 npm install -g @anthropic-ai/claude-code
 
 # Switch to deploy user
-su - deploy
+sudo - deploy
 ```
 
 From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below. Make sure that Claude gets access 
