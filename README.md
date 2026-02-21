@@ -146,6 +146,7 @@ ssh root@YOUR_SERVER_IP
 ```bash
 # Create a deploy user (don't run Sergio as root)
 adduser deploy
+# You can set a password
 usermod -aG sudo deploy
 mkdir -p /home/deploy/.ssh
 cp ~/.ssh/authorized_keys /home/deploy/.ssh/
@@ -312,16 +313,23 @@ launchctl unload ~/Library/LaunchAgents/com.sergio.bot.plist
 ### Quick start
 
 ```bash
-# Clone and install
-git clone https://github.com/Belfio/sergio.git /opt/sergio
-cd /opt/sergio
+
+# 1. Clone (as deploy user)
+git clone https://github.com/Belfio/sergio.git ~/sergio
+cd ~/sergio
 npm install
 
-# Run the interactive setup wizard
+# 2. Create sandbox user (needs sudo)
+sudo useradd --system --shell /bin/bash --create-home claudeuser
+echo 'deploy ALL=(claudeuser) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/sergio
+sudo chmod 0440 /etc/sudoers.d/sergio
+
+# 3. Run the interactive setup wizard (have your API keys ready)
 npm run setup
 
-# Start
+# 4. Start
 npm start
+
 ```
 
 ### What the setup wizard does
