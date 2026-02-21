@@ -15,7 +15,7 @@
 
 # 👴🏻 Sergio AI
 
-### Trello AI teammate that reviews trello cards with the Product Manager PRD and Figma designs with knowledge about your codebase, helps you makeing a development plan and initiates the PR github.
+### Trello AI teammate that reviews trello cards with the Product Manager PRD and Figma designs with knowledge about your codebase, helps you making a development plan and initiates the PR on GitHub.
 Developers have AI PR reviews. Product Manager should have the same support with Sergio.
 
 [Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration)
@@ -169,9 +169,7 @@ npm install -g @anthropic-ai/claude-code
 su - deploy
 ```
 
-From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below. Make sure that Claude gets access 
-
-From here, follow the [Getting Started](#getting-started) section below.
+From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below.
 
 ---
 

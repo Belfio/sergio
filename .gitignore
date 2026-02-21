@@ -4,3 +4,4 @@ dist/
 sergio.config.json
 logs/
 data/
+.DS_Store
