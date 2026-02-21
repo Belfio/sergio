@@ -1,3 +1,4 @@
+import path from "path";
 import readline from "readline";
 
 const rl = readline.createInterface({
@@ -44,8 +45,9 @@ export async function collectSetupAnswers(): Promise<SetupAnswers> {
   const trelloToken = await ask("Trello Token");
   const githubToken = await ask("GitHub Token (optional)");
   const repoUrl = await ask("GitHub repository URL");
-  const repoDir = await ask("Repo directory on server", "/opt/repo");
-  const worktreeBaseDir = await ask("Worktree base directory", "/opt/worktrees");
+  const cwd = process.cwd();
+  const repoDir = await ask("Repo directory", cwd);
+  const worktreeBaseDir = await ask("Worktree base directory", path.resolve(cwd, "..", "worktrees"));
   const baseBranch = await ask("Base branch", "main");
   const baseRemote = await ask("Base remote", "origin");
 

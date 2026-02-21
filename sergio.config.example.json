@@ -17,8 +17,8 @@
   "github": {
     "repoUrl": "https://github.com/you/your-repo"
   },
-  "repoDir": "/opt/repo",
-  "worktreeBaseDir": "/opt/worktrees",
+  "repoDir": "~/repo",
+  "worktreeBaseDir": "~/worktrees",
   "urlAllowList": [
     "https://github.com",
     "https://docs.google.com"

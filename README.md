@@ -372,8 +372,8 @@ Sergio uses two config files. Secrets live in `.env` (never committed). Everythi
     "lists": { /* list IDs set automatically by setup */ }
   },
   "github": { "repoUrl": "https://github.com/you/your-repo" },
-  "repoDir": "/opt/your-repo",  // Path to the repo Sergio works on
-  "worktreeBaseDir": "/opt/worktrees",
+  "repoDir": "~/your-repo",  // Path to the repo Sergio works on
+  "worktreeBaseDir": "~/worktrees",
   "urlAllowList": [              // URLs Claude is allowed to access (see Security)
     "https://github.com",
     "https://docs.google.com",

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 dotenv.config();
@@ -51,6 +52,10 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function expandTilde(p: string): string {
+  return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p;
+}
+
 function loadConfig(): Config {
   if (!fs.existsSync(CONFIG_FILE)) {
     console.error(
@@ -83,8 +88,8 @@ function loadConfig(): Config {
       },
     },
     github: { repoUrl: raw.github?.repoUrl || "" },
-    repoDir: raw.repoDir || "/opt/repo",
-    worktreeBaseDir: raw.worktreeBaseDir || "/opt/worktrees",
+    repoDir: expandTilde(raw.repoDir || process.cwd()),
+    worktreeBaseDir: expandTilde(raw.worktreeBaseDir || path.resolve(process.cwd(), "..", "worktrees")),
     maxCardAttempts: raw.maxCardAttempts ?? 3,
     urlAllowList: raw.urlAllowList || [],
     prompts: {
