@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "tsx src/index.ts",
+    "restart": "sudo systemctl restart sergio",
     "setup": "tsx src/setup/index.ts",
     "status": "tsx src/status.ts"
   },
