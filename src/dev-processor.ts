@@ -1,15 +1,20 @@
 import { spawn, ChildProcess } from "child_process";
+import path from "path";
+import os from "os";
 import { log } from "./logger.js";
 import { config } from "./config.js";
 import {
   getCardActions,
   getCardAttachments,
+  downloadCardAttachments,
+  cleanupAttachments,
   moveCard,
   addComment,
   addAttachment,
   type TrelloCard,
   type TrelloComment,
-  type TrelloAttachment,
+  type DownloadedAttachment,
+  type LinkAttachment,
 } from "./trello.js";
 import { markDevCardProcessed, incrementDevCardAttempts, clearDevCardAttempts } from "./dev-state.js";
 import { runClaudeDev } from "./claude-dev.js";
@@ -24,7 +29,8 @@ interface DevProcessContext {
 function formatCardContent(
   card: TrelloCard,
   comments: TrelloComment[],
-  attachments: TrelloAttachment[]
+  downloaded: DownloadedAttachment[],
+  links: LinkAttachment[]
 ): string {
   const lines: string[] = [];
   lines.push(`Card: ${card.name}`);
@@ -44,11 +50,16 @@ function formatCardContent(
     }
   }
   lines.push("--- Attachments ---");
-  if (attachments.length === 0) {
+  if (downloaded.length === 0 && links.length === 0) {
     lines.push("(no attachments)");
   } else {
-    for (const att of attachments) {
-      lines.push(`${att.name}: ${att.url}`);
+    for (const att of downloaded) {
+      const mime = att.mimeType ? ` (${att.mimeType})` : "";
+      lines.push(`${att.name}${mime}: ${att.localPath}`);
+      lines.push("  ^ This file has been downloaded locally. Use the Read tool to view it.");
+    }
+    for (const att of links) {
+      lines.push(`${att.name} [link]: ${att.url}`);
     }
   }
   return lines.join("\n");
@@ -291,15 +302,23 @@ export async function processDevCard(
   await moveCard(card.id, ctx.processingListId);
   log.info("  Moved to developing list");
 
+  const attachDir = path.join(os.tmpdir(), `sergio-att-${card.id}`);
+
   try {
     // 2. Fetch comments and attachments
     const [comments, attachments] = await Promise.all([
       getCardActions(card.id),
       getCardAttachments(card.id),
     ]);
-    const cardContent = formatCardContent(card, comments, attachments);
 
-    // 3. Create git worktree
+    // 3. Download uploaded attachments locally so Claude can read them
+    const { downloaded, links } = await downloadCardAttachments(attachments, attachDir);
+    if (downloaded.length > 0) {
+      log.info(`  Downloaded ${downloaded.length} attachment(s)`);
+    }
+    const cardContent = formatCardContent(card, comments, downloaded, links);
+
+    // 4. Create git worktree
     await createWorktree(config.repoDir, worktreeDir, branchName);
 
     // 4. Run dev implementation
@@ -369,7 +388,8 @@ export async function processDevCard(
       );
     }
   } finally {
-    // Always clean up worktree
+    // Always clean up worktree and downloaded attachments
     await cleanupWorktree(config.repoDir, worktreeDir);
+    await cleanupAttachments(attachDir);
   }
 }

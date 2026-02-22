@@ -2,14 +2,18 @@ import fs from "fs/promises";
 import path from "path";
 import { log } from "./logger.js";
 import { config } from "./config.js";
+import os from "os";
 import {
   getCardActions,
   getCardAttachments,
+  downloadCardAttachments,
+  cleanupAttachments,
   moveCard,
   addComment,
   type TrelloCard,
   type TrelloComment,
-  type TrelloAttachment,
+  type DownloadedAttachment,
+  type LinkAttachment,
 } from "./trello.js";
 import { markCardProcessed, incrementCardAttempts, clearCardAttempts } from "./state.js";
 import { runClaude } from "./claude.js";
@@ -27,7 +31,8 @@ interface ProcessContext {
 function formatCardData(
   card: TrelloCard,
   comments: TrelloComment[],
-  attachments: TrelloAttachment[],
+  downloaded: DownloadedAttachment[],
+  links: LinkAttachment[],
   ctx: ProcessContext
 ): string {
   const lines: string[] = [];
@@ -55,11 +60,16 @@ function formatCardData(
   }
 
   lines.push("--- Attachments ---");
-  if (attachments.length === 0) {
+  if (downloaded.length === 0 && links.length === 0) {
     lines.push("(no attachments)");
   } else {
-    for (const att of attachments) {
-      lines.push(`${att.name}: ${att.url}`);
+    for (const att of downloaded) {
+      const mime = att.mimeType ? ` (${att.mimeType})` : "";
+      lines.push(`${att.name}${mime}: ${att.localPath}`);
+      lines.push("  ^ This file has been downloaded locally. Use the Read tool to view it.");
+    }
+    for (const att of links) {
+      lines.push(`${att.name} [link]: ${att.url}`);
     }
   }
 
@@ -76,6 +86,8 @@ export async function processCard(
   await moveCard(card.id, ctx.reviewingListId);
   log.info(`  Moved to reviewing list`);
 
+  const attachDir = path.join(os.tmpdir(), `sergio-att-${card.id}`);
+
   try {
     // 2. Fetch comments + attachments
     const [comments, attachments] = await Promise.all([
@@ -83,8 +95,14 @@ export async function processCard(
       getCardAttachments(card.id),
     ]);
 
-    // 3. Write enriched .txt file
-    const content = formatCardData(card, comments, attachments, ctx);
+    // 3. Download uploaded attachments locally so Claude can read them
+    const { downloaded, links } = await downloadCardAttachments(attachments, attachDir);
+    if (downloaded.length > 0) {
+      log.info(`  Downloaded ${downloaded.length} attachment(s)`);
+    }
+
+    // 4. Write enriched .txt file
+    const content = formatCardData(card, comments, downloaded, links, ctx);
 
     await fs.mkdir(config.logsDir, { recursive: true });
     const filename = `${card.id}-${sanitizeFilename(card.name)}.txt`;
@@ -92,12 +110,12 @@ export async function processCard(
     await fs.writeFile(filepath, content);
     log.info(`  Wrote log: ${filename}`);
 
-    // 4. Run Claude to generate implementation plan
+    // 5. Run Claude to generate implementation plan
     log.info(`  Running ${config.botName} against ${config.repoDir}...`);
     const plan = await runClaude(filepath, config.repoDir);
     log.info(`  ${config.botName} produced plan (${plan.length} chars)`);
 
-    // 5. Post plan as comment on the Trello card (truncated for Trello limit)
+    // 6. Post plan as comment on the Trello card (truncated for Trello limit)
     const MAX_COMMENT_LENGTH = 15000;
     if (plan.length > MAX_COMMENT_LENGTH) {
       const planFilename = `${card.id}-plan.txt`;
@@ -113,11 +131,11 @@ export async function processCard(
     }
     log.info(`  Posted plan as comment on card`);
 
-    // 6. Move card to reviewed list
+    // 7. Move card to reviewed list
     await moveCard(card.id, ctx.destListId);
     log.info(`  Moved to reviewed list`);
 
-    // 7. Mark as processed and clear attempts
+    // 8. Mark as processed and clear attempts
     await markCardProcessed(card.id);
     await clearCardAttempts(card.id);
   } catch (err) {
@@ -140,5 +158,7 @@ export async function processCard(
         log.error("  Failed to move card back:", e)
       );
     }
+  } finally {
+    await cleanupAttachments(attachDir);
   }
 }

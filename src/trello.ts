@@ -1,3 +1,6 @@
+import fs from "fs/promises";
+import path from "path";
+import { log } from "./logger.js";
 import { config } from "./config.js";
 
 const BASE_URL = "https://api.trello.com/1";
@@ -75,6 +78,20 @@ export interface TrelloAttachment {
   id: string;
   name: string;
   url: string;
+  mimeType: string | null;
+  isUpload: boolean;
+  bytes: number;
+}
+
+export interface DownloadedAttachment {
+  name: string;
+  localPath: string;
+  mimeType: string | null;
+}
+
+export interface LinkAttachment {
+  name: string;
+  url: string;
 }
 
 export function getBoardLists(boardId: string): Promise<TrelloList[]> {
@@ -115,4 +132,72 @@ export function addAttachment(cardId: string, url: string, name: string): Promis
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url, name }),
   });
+}
+
+const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
+
+async function downloadTrelloFile(url: string, destPath: string): Promise<void> {
+  // Add Trello auth for Trello-hosted URLs (S3 URLs work without it)
+  const downloadUrl = url.includes("trello.com")
+    ? `${url}${url.includes("?") ? "&" : "?"}${authParams()}`
+    : url;
+
+  const res = await fetch(downloadUrl);
+  if (!res.ok) {
+    throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length > MAX_DOWNLOAD_BYTES) {
+    throw new Error(`File too large: ${buffer.length} bytes (limit: ${MAX_DOWNLOAD_BYTES})`);
+  }
+  await fs.writeFile(destPath, buffer);
+  await fs.chmod(destPath, 0o644);
+}
+
+/**
+ * Download uploaded attachments to a local directory.
+ * Returns categorized results: downloaded files and link-only attachments.
+ */
+export async function downloadCardAttachments(
+  attachments: TrelloAttachment[],
+  destDir: string
+): Promise<{ downloaded: DownloadedAttachment[]; links: LinkAttachment[] }> {
+  await fs.mkdir(destDir, { recursive: true });
+  await fs.chmod(destDir, 0o755);
+
+  const downloaded: DownloadedAttachment[] = [];
+  const links: LinkAttachment[] = [];
+
+  for (const att of attachments) {
+    if (!att.isUpload) {
+      links.push({ name: att.name, url: att.url });
+      continue;
+    }
+
+    try {
+      // Use att.id + original extension to avoid filename conflicts
+      const ext = path.extname(att.name) || "";
+      const localName = `${att.id}${ext}`;
+      const localPath = path.join(destDir, localName);
+
+      await downloadTrelloFile(att.url, localPath);
+      downloaded.push({ name: att.name, localPath, mimeType: att.mimeType });
+      log.info(`  Downloaded attachment: ${att.name} (${att.bytes} bytes)`);
+    } catch (e) {
+      log.error(`  Failed to download attachment ${att.name}:`, e);
+      // Fall back to link reference
+      links.push({ name: att.name, url: att.url });
+    }
+  }
+
+  return { downloaded, links };
+}
+
+export async function cleanupAttachments(destDir: string): Promise<void> {
+  try {
+    await fs.rm(destDir, { recursive: true, force: true });
+  } catch (e) {
+    log.error(`  Failed to clean up attachment dir ${destDir}:`, e);
+  }
 }
