@@ -14,6 +14,7 @@ function timestamp(): string {
 
 function safeStringify(value: unknown): string {
   if (typeof value === "string") return value;
+  if (value instanceof Error) return value.stack || value.message;
   try {
     return JSON.stringify(value, null, 2);
   } catch {

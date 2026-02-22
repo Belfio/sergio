@@ -137,12 +137,14 @@ export function addAttachment(cardId: string, url: string, name: string): Promis
 const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
 
 async function downloadTrelloFile(url: string, destPath: string): Promise<void> {
-  // Add Trello auth for Trello-hosted URLs (S3 URLs work without it)
-  const downloadUrl = url.includes("trello.com")
-    ? `${url}${url.includes("?") ? "&" : "?"}${authParams()}`
-    : url;
+  // Trello download endpoints require OAuth header auth (query params return 401)
+  const headers: Record<string, string> = {};
+  if (url.includes("trello.com")) {
+    headers["Authorization"] =
+      `OAuth oauth_consumer_key="${config.apiKey}", oauth_token="${config.token}"`;
+  }
 
-  const res = await fetch(downloadUrl);
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     throw new Error(`Download failed: ${res.status} ${res.statusText}`);
   }
