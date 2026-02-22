@@ -18,39 +18,37 @@
 ### Trello AI teammate that reviews trello cards with the Product Manager PRD and Figma designs with knowledge about your codebase, helps you making a development plan and initiates the PR on GitHub.
 Developers have AI PR reviews. Product Manager should have the same support with Sergio.
 
-[Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration)
+[Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration) ·  [Security](#security)
 
 </div>
 
----
 
 ## Support
 
 If you would like me to help you with the installation, please contact me on twitter @belfio or directly pay here: [stripe](https://buy.stripe.com/14AeVddVr0nA0xF5Oi67S00)
 
----
 
-### Why
 
-You have a team where a Product Manager designs and writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggest improvements and explain the implementation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to create a new Draft PR.
+## Intro
 
-### What
+Sergio script conencts to Github, Claude and Trello. It creates a new **Trello board**, monitors the cards inserted in specific lists and completes 2 main tasks: 
+1. **Reviews**: Adding comments the Planning cards (it then lets you review the new plan)
+2. **Implements**: Initiates a DRAFT PR on Github
+
+All triggered by moving Trello cards. You stay in the loop at every step.
+
+### How
 
 Sergio is a self-hosted bot that connects your **Trello board** to **Claude AI**. Write a task card, drop it in the right list, and Sergio reviews it — producing an implementation plan, asking clarifying questions, or requesting card improvements — then writes the code, runs your tests, and opens a pull request.
 
 It runs on a single VM, polls your board every 60 seconds, and uses sandboxed Claude CLI sessions to do the actual work. No external SaaS, no vendor lock-in, fully open source.
 
-### What it does
 
-1. **Reviews** — Reads your Trello card, explores the codebase, and responds with an implementation plan, clarifying questions, or revision requests
-2. **Posts** — Posts the response as a card comment and moves it for human review
-3. **Implements** — Once approved, writes the code in an isolated git worktree
-4. **Tests** — Runs your test suite automatically
-5. **Ships** — Commits, pushes to a feature branch, and opens a pull request
+### Why
 
-All triggered from a Trello card. You stay in the loop at every step.
+You have a team where a Product Manager designs and writes features with limited knowledge about the codebase. The PM can ask Sergio to review the feature and suggest improvements and explain the implementation details to the Product Manager, until ready and clear for the Development team. The Development team can at this point ask Sergio to create a new Draft PR.
 
----
+
 
 ## How It Works
 
@@ -112,7 +110,7 @@ The bot polls both pipelines concurrently. Planning takes minutes. Development c
 
 **Commit authoring:** Commits made by the development pipeline are authored as `Sergio AI <sergio-ai@noreply>` (or your custom `botName`), so they're easy to distinguish from human commits in GitHub's history. Note that PR authorship is tied to the `GITHUB_TOKEN` owner and cannot be overridden without a dedicated bot account.
 
----
+
 
 ## Starting from Scratch
 
@@ -170,7 +168,7 @@ su - sergio
 
 From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below.
 
----
+
 
 ## Local Install (macOS)
 
@@ -301,7 +299,7 @@ launchctl list | grep sergio
 launchctl unload ~/Library/LaunchAgents/com.sergio.bot.plist
 ```
 
----
+
 
 ## Getting Started (Linux)
 
@@ -350,7 +348,7 @@ sudo systemctl start sergio
 sudo journalctl -u sergio -f
 ```
 
----
+
 
 ## Configuration
 
