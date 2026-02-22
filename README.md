@@ -326,7 +326,7 @@ The `sergio` user spawns Claude sessions via `sudo -u claudeuser`, which require
 
 ```
 # /etc/sudoers.d/sergio
-sergio ALL=(claudeuser) NOPASSWD: ALL
+sergio ALL=(claudeuser) NOPASSWD:SETENV: ALL
 ```
 
 This allows `sergio` to run commands as `claudeuser` without a password, while keeping the two accounts fully separate.
@@ -533,7 +533,7 @@ sudo dscl . -create /Users/claudeuser PrimaryGroupID 20
 sudo dscl . -create /Users/claudeuser NFSHomeDirectory /var/empty
 
 # Allow your user to sudo as claudeuser without a password
-sudo tee /etc/sudoers.d/sergio <<< "$USER ALL=(claudeuser) NOPASSWD: ALL"
+sudo tee /etc/sudoers.d/sergio <<< "$USER ALL=(claudeuser) NOPASSWD:SETENV: ALL"
 sudo chmod 0440 /etc/sudoers.d/sergio
 
 # Verify it works

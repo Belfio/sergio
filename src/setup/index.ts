@@ -117,7 +117,7 @@ function ensureClaudeUser(): void {
   // Ensure the current user can sudo as claudeuser without a password
   const sudoersFile = "/etc/sudoers.d/sergio";
   const currentUser = process.env.USER || "sergio";
-  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD: ALL`;
+  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD:SETENV: ALL`;
   try {
     const existing = execFileSync("sudo", ["cat", sudoersFile], { encoding: "utf-8" }).trim();
     if (existing === sudoersRule) {

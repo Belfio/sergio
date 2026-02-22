@@ -32,6 +32,7 @@ export async function runClaude(
     // Mitigations: runs as sandboxed "claudeuser" with restricted network (firewall),
     // prompt piped via stdin (never touches disk), and no access to secrets or credentials.
     const child = spawn("sudo", [
+      "--preserve-env=ANTHROPIC_API_KEY",
       "-u", "claudeuser", "--",
       "claude", "-p", "--dangerously-skip-permissions",
     ], {
