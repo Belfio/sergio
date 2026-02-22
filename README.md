@@ -15,8 +15,8 @@
 
 # 👴🏻 Sergio AI
 
-### Trello AI teammate that reviews trello cards with the Product Manager PRD and Figma designs with knowledge about your codebase, helps you making a development plan and initiates the PR on GitHub.
-Developers have AI PR reviews. Product Manager should have the same support with **Sergio**.
+### Trello AI teammate that reviews Trello cards against product context and your codebase, helps you create a development plan, and opens draft PRs on GitHub.
+Developers already have AI PR reviews. Product managers should have the same support with **Sergio**.
 
 [Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration) ·  [Security](#security)
 
@@ -31,9 +31,9 @@ If you would like me to help you with the installation, please contact me on twi
 
 ## Intro
 
-Sergio script conencts to Github, Claude and Trello. It creates a new **Trello board**, monitors the cards inserted in specific lists and completes 2 main tasks: 
-1. **Reviews**: Adding comments the Planning cards (it then lets you review the new plan)
-2. **Implements**: Initiates a DRAFT PR on Github
+The Sergio script connects to GitHub, Claude, and Trello. It creates a new **Trello board**, monitors cards in specific lists, and completes two main tasks:
+1. **Reviews**: Adds planning comments to cards (then lets you review and iterate)
+2. **Implements**: Initiates a draft PR on GitHub
 
 All triggered by moving Trello cards. You stay in the loop at every step.
 
@@ -169,7 +169,7 @@ npm install -g @anthropic-ai/claude-code
 su - sergio
 ```
 
-From here you can just run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, configure the systemd service. Or continue manually with the [Getting Started](#getting-started) steps below.
+From here you can run `claude` in the terminal and ask it to do the rest — clone this repo, run the setup wizard, and configure the systemd service. Or continue manually with the [Getting Started](#getting-started-linux) steps below.
 
 
 
@@ -258,7 +258,7 @@ Sergio uses two config files. Secrets live in `.env` (never committed). Everythi
   "pipeline": {
     "devCommand": "",            // Dev server command (e.g. "npx sst dev") — empty = skip
     "devReadyPattern": "",       // Text to watch for in dev server output
-    "testCommands": ["npm test"] // Test commands to run — empty array = skip
+    "testCommands": []           // Test commands to run — empty array = skip
   },
   "timeouts": {
     "claudeDevMs": 1200000,      // 20 min — Claude dev session
@@ -326,7 +326,7 @@ The `sergio` user spawns Claude sessions via `sudo -u claudeuser`, which require
 
 ```
 # /etc/sudoers.d/sergio
-sergio ALL=(claudeuser) NOPASSWD: ALL
+sergio ALL=(claudeuser) NOPASSWD:SETENV: ALL
 ```
 
 This allows `sergio` to run commands as `claudeuser` without a password, while keeping the two accounts fully separate.
@@ -533,7 +533,7 @@ sudo dscl . -create /Users/claudeuser PrimaryGroupID 20
 sudo dscl . -create /Users/claudeuser NFSHomeDirectory /var/empty
 
 # Allow your user to sudo as claudeuser without a password
-sudo tee /etc/sudoers.d/sergio <<< "$USER ALL=(claudeuser) NOPASSWD: ALL"
+sudo tee /etc/sudoers.d/sergio <<< "$USER ALL=(claudeuser) NOPASSWD:SETENV: ALL"
 sudo chmod 0440 /etc/sudoers.d/sergio
 
 # Verify it works

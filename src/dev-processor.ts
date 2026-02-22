@@ -13,20 +13,12 @@ import {
 } from "./trello.js";
 import { markDevCardProcessed, incrementDevCardAttempts, clearDevCardAttempts } from "./dev-state.js";
 import { runClaudeDev } from "./claude-dev.js";
+import { sanitizeBranchName } from "./git-utils.js";
 
 interface DevProcessContext {
   sourceListId: string;
   processingListId: string;
   doneListId: string;
-}
-
-export function sanitizeBranchName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .substring(0, 50);
 }
 
 function formatCardContent(
@@ -160,7 +152,6 @@ async function withDevServer<T>(
   ], {
     cwd: worktreeDir,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env },
   });
 
   let serverReady = false;
@@ -234,8 +225,18 @@ async function gitCommitAndPush(
   worktreeDir: string,
   branchName: string,
   cardName: string
-): Promise<void> {
+): Promise<boolean> {
   await runAsClaudeUser(["git", "add", "-A"], worktreeDir, 30_000);
+  const { stdout: stagedFiles } = await runAsClaudeUser(
+    ["git", "diff", "--cached", "--name-only"],
+    worktreeDir,
+    30_000
+  );
+  if (!stagedFiles.trim()) {
+    log.info("  No file changes to commit");
+    return false;
+  }
+
   const commitMsg = `feat: ${cardName}`;
   const author = `${config.botName} AI <${config.botName.toLowerCase()}-ai@noreply>`;
   await runAsClaudeUser(
@@ -249,6 +250,7 @@ async function gitCommitAndPush(
     60_000
   );
   log.info(`  Committed and pushed to ${branchName}`);
+  return true;
 }
 
 async function createPullRequest(
@@ -259,7 +261,13 @@ async function createPullRequest(
   const title = card.name;
   const body = `Trello: ${card.url}`;
   const { stdout } = await runAsClaudeUser(
-    ["gh", "pr", "create", "--draft", "--title", title, "--body", body],
+    [
+      "gh", "pr", "create", "--draft",
+      "--base", config.baseBranch,
+      "--head", branchName,
+      "--title", title,
+      "--body", body,
+    ],
     worktreeDir,
     60_000
   );
@@ -315,15 +323,22 @@ export async function processDevCard(
       await runTestCommands(worktreeDir);
     }
 
-    // 8. Git commit + push
-    await gitCommitAndPush(worktreeDir, branchName, card.name);
+    // 8. Git commit + push (or mark as no-op if Claude made no code changes)
+    const committed = await gitCommitAndPush(worktreeDir, branchName, card.name);
+    if (!committed) {
+      await addComment(
+        card.id,
+        `**${config.botName}: no code changes detected**\n\nClaude completed the run but did not produce file changes to commit.`
+      );
+      log.info("  Posted no-op result comment");
+    } else {
+      // 9. Create PR
+      const prUrl = await createPullRequest(worktreeDir, branchName, card);
 
-    // 9. Create PR
-    const prUrl = await createPullRequest(worktreeDir, branchName, card);
-
-    // 10. Attach PR URL to card
-    await addAttachment(card.id, prUrl, "Pull Request");
-    log.info("  Attached PR to card");
+      // 10. Attach PR URL to card
+      await addAttachment(card.id, prUrl, "Pull Request");
+      log.info("  Attached PR to card");
+    }
 
     // 11. Move card to done list
     await moveCard(card.id, ctx.doneListId);

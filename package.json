@@ -7,7 +7,8 @@
     "start": "tsx src/index.ts",
     "restart": "sudo systemctl restart sergio",
     "setup": "tsx src/setup/index.ts",
-    "status": "tsx src/status.ts"
+    "status": "tsx src/status.ts",
+    "test": "node --import tsx --test tests/**/*.test.ts"
   },
   "keywords": [
     "trello",

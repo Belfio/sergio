@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { resolvePipelineConfig } from "./config-utils.js";
 
 dotenv.config();
 
@@ -96,11 +97,7 @@ function loadConfig(): Config {
       revisionTemplate: raw.prompts?.revisionTemplate || "prompts/revision.md",
       developmentTemplate: raw.prompts?.developmentTemplate || "prompts/development.md",
     },
-    pipeline: {
-      devCommand: raw.pipeline?.devCommand ?? "npx sst dev",
-      devReadyPattern: raw.pipeline?.devReadyPattern ?? "Complete",
-      testCommands: raw.pipeline?.testCommands ?? ["npx jest --passWithNoTests", "npx playwright test"],
-    },
+    pipeline: resolvePipelineConfig(raw.pipeline),
     timeouts: {
       claudeDevMs: raw.timeouts?.claudeDevMs || 20 * 60 * 1000,
       devServerMs: raw.timeouts?.devServerMs || raw.timeouts?.sstDevMs || 10 * 60 * 1000,

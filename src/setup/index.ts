@@ -3,12 +3,12 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { collectSetupAnswers, ask, closePrompts, type PreviousValues } from "./prompts.js";
-import { setupTrelloBoard, fetchBoardLists, type BoardSetupResult } from "./trello-setup.js";
+import { setupTrelloBoard, createWorkflowLists, fetchBoardLists, type BoardSetupResult } from "./trello-setup.js";
 
 const CONFIG_FILE = path.resolve("sergio.config.json");
 const ENV_FILE = path.resolve(".env");
 
-function parseBoardId(input: string): string {
+export function parseBoardId(input: string): string {
   // Accept a Trello URL like https://trello.com/b/AbCdEfGh/board-name
   // or just a raw board ID
   const match = input.match(/trello\.com\/b\/([a-zA-Z0-9]+)/);
@@ -360,12 +360,13 @@ async function runFullSetup(prev: PreviousValues = {}): Promise<void> {
 
     if (existingLists.length === 0) {
       console.log("  No lists found on this board. Creating them now...");
-      board = await setupTrelloBoard(
+      const lists = await createWorkflowLists(
+        boardId,
         answers.botName,
         answers.trelloApiKey,
         answers.trelloToken
       );
-      board.boardId = boardId;
+      board = { boardId, lists };
     } else {
       console.log(`  Found ${existingLists.length} list(s):`);
       for (const list of existingLists) {

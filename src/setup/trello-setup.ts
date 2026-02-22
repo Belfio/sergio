@@ -67,6 +67,35 @@ export interface BoardSetupResult {
   };
 }
 
+export function workflowListDefs(botName: string) {
+  return [
+    { key: "todo", name: "📋 TODO", pos: 1000 },
+    { key: "taskRevision", name: `🔍 ${botName} Revision`, pos: 2000 },
+    { key: "reviewing", name: `⏳ ${botName} Reviewing`, pos: 3000 },
+    { key: "todoReviewed", name: "✅ Reviewed", pos: 4000 },
+    { key: "taskDevelopment", name: `🛠️ ${botName} Development`, pos: 5000 },
+    { key: "developing", name: `⚙️ ${botName} Developing`, pos: 6000 },
+    { key: "taskDeveloped", name: "🚀 Ready for Review", pos: 7000 },
+  ] as const;
+}
+
+export async function createWorkflowLists(
+  boardId: string,
+  botName: string,
+  apiKey: string,
+  token: string
+): Promise<BoardSetupResult["lists"]> {
+  const listDefs = workflowListDefs(botName);
+  const lists: Record<string, string> = {};
+
+  for (const def of listDefs) {
+    console.log(`  Creating list "${def.name}"...`);
+    lists[def.key] = await createList(boardId, def.name, def.pos, apiKey, token);
+  }
+
+  return lists as BoardSetupResult["lists"];
+}
+
 export async function fetchBoardLists(
   boardId: string,
   apiKey: string,
@@ -84,25 +113,10 @@ export async function setupTrelloBoard(
   const boardId = await createBoard(`${botName} Board`, apiKey, token);
   console.log(`  Board created: ${boardId}`);
 
-  const listDefs = [
-    { key: "todo", name: "📋 TODO", pos: 1000 },
-    { key: "taskRevision", name: `🔍 ${botName} Revision`, pos: 2000 },
-    { key: "reviewing", name: `⏳ ${botName} Reviewing`, pos: 3000 },
-    { key: "todoReviewed", name: "✅ Reviewed", pos: 4000 },
-    { key: "taskDevelopment", name: `🛠️ ${botName} Development`, pos: 5000 },
-    { key: "developing", name: `⚙️ ${botName} Developing`, pos: 6000 },
-    { key: "taskDeveloped", name: "🚀 Ready for Review", pos: 7000 },
-  ] as const;
-
-  const lists: Record<string, string> = {};
-
-  for (const def of listDefs) {
-    console.log(`  Creating list "${def.name}"...`);
-    lists[def.key] = await createList(boardId, def.name, def.pos, apiKey, token);
-  }
+  const lists = await createWorkflowLists(boardId, botName, apiKey, token);
 
   return {
     boardId,
-    lists: lists as BoardSetupResult["lists"],
+    lists,
   };
 }
