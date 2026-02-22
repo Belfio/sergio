@@ -18,7 +18,7 @@
 ### Trello AI teammate that reviews Trello cards against product context and your codebase, helps you create a development plan, and opens draft PRs on GitHub.
 Developers already have AI PR reviews. Product managers should have the same support with **Sergio**.
 
-[Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration) ·  [Security](#security)
+[Local Install (macOS)](#local-install-macos) · [Starting from Scratch](#starting-from-scratch) · [Getting Started (Linux)](#getting-started-linux) · [How It Works](#how-it-works) · [Configuration](#configuration) · [Security](#security) · [Roadmap](#roadmap)
 
 </div>
 
@@ -678,6 +678,35 @@ launchctl unload ~/Library/LaunchAgents/com.sergio.bot.plist
 ```
 
 
+
+## Roadmap
+
+Sergio is designed to be modular. Here's what's coming next.
+
+### Multi-engine support
+
+Sergio currently uses Claude CLI as its AI engine. We plan to make this pluggable so you can choose your backend:
+
+- **[OpenCode](https://opencode.ai/)** — open-source CLI with multi-provider support (Anthropic, OpenAI, Google, local models). Drop-in alternative that runs in the same sandboxed `claudeuser` architecture.
+- **[Codex](https://github.com/openai/codex)** — OpenAI's coding agent CLI. Same sandbox model: runs as a restricted user, no access to secrets, pipeline handles git operations.
+
+The goal is a `"engine"` field in `sergio.config.json` so you can switch between backends without changing anything else. The two-user security model and prompt templates work regardless of which CLI does the AI work.
+
+### MCP servers for external context
+
+Claude CLI supports [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers — sidecar processes that give the AI tools to read external data. This lets Sergio access Google Docs, Figma designs, Notion pages, and more when processing cards.
+
+Planned integrations:
+- **Google Docs** — read linked specs and PRDs directly from cards
+- **Figma** — access design files referenced in cards (via REST API for headless servers)
+- **Notion** — pull context from linked Notion pages
+- **Any MCP-compatible server** — the config accepts arbitrary MCP server definitions
+
+Architecture: an `mcpServers` field in `sergio.config.json` with env var references resolved from `.env`. Sergio writes a temp config file, passes it to the CLI via `--mcp-config`, and cleans up after. Secrets stay in `.env`, the security sandbox is preserved, and `claudeuser` never sees credentials directly.
+
+See [MCP.md](MCP.md) for the full implementation plan.
+
+---
 
 ## Contributing
 
