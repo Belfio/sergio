@@ -4,6 +4,8 @@ import os from "os";
 import path from "path";
 import { collectSetupAnswers, ask, closePrompts, type PreviousValues } from "./prompts.js";
 import { setupTrelloBoard, createWorkflowLists, fetchBoardLists, type BoardSetupResult } from "./trello-setup.js";
+import type { McpServersConfig } from "../mcp-types.js";
+import { parseMcpConfigDocument, collectMcpEnvPlaceholders } from "../mcp-utils.js";
 
 const CONFIG_FILE = path.resolve("sergio.config.json");
 const ENV_FILE = path.resolve(".env");
@@ -117,7 +119,7 @@ function ensureClaudeUser(): void {
   // Ensure the current user can sudo as claudeuser without a password
   const sudoersFile = "/etc/sudoers.d/sergio";
   const currentUser = process.env.USER || "sergio";
-  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD: ALL`;
+  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD:SETENV: ALL`;
   try {
     const existing = execFileSync("sudo", ["cat", sudoersFile], { encoding: "utf-8" }).trim();
     if (existing === sudoersRule) {
@@ -223,6 +225,7 @@ function buildPreviousValues(config: any | null, env: Record<string, string>): P
     urlAllowList: config?.urlAllowList,
     revisionTemplate: config?.prompts?.revisionTemplate,
     developmentTemplate: config?.prompts?.developmentTemplate,
+    mcpConfigPath: "",
   };
 }
 
@@ -230,16 +233,31 @@ async function writeEnvFile(
   anthropicApiKey: string,
   apiKey: string,
   token: string,
-  githubToken: string
+  githubToken: string,
+  existingEnv: Record<string, string>,
+  extraKeys: string[] = []
 ): Promise<void> {
-  const lines = [
-    `ANTHROPIC_API_KEY=${anthropicApiKey}`,
-    `TRELLO_API_KEY=${apiKey}`,
-    `TRELLO_TOKEN=${token}`,
-  ];
+  const merged: Record<string, string> = { ...existingEnv };
+
+  merged.ANTHROPIC_API_KEY = anthropicApiKey;
+  merged.TRELLO_API_KEY = apiKey;
+  merged.TRELLO_TOKEN = token;
   if (githubToken) {
-    lines.push(`GITHUB_TOKEN=${githubToken}`);
+    merged.GITHUB_TOKEN = githubToken;
+  } else {
+    delete merged.GITHUB_TOKEN;
   }
+
+  for (const key of extraKeys) {
+    if (!(key in merged)) {
+      merged[key] = "";
+    }
+  }
+
+  const lines = Object.entries(merged)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`);
+
   await fs.writeFile(ENV_FILE, lines.join("\n") + "\n");
   console.log(`  Wrote ${ENV_FILE}`);
 }
@@ -247,6 +265,13 @@ async function writeEnvFile(
 async function writeConfigFile(config: Record<string, any>): Promise<void> {
   await fs.writeFile(CONFIG_FILE, JSON.stringify(config, null, 2) + "\n");
   console.log(`  Wrote ${CONFIG_FILE}`);
+}
+
+async function writeRawEnv(env: Record<string, string>): Promise<void> {
+  const lines = Object.entries(env)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`);
+  await fs.writeFile(ENV_FILE, lines.join("\n") + "\n");
 }
 
 async function ensurePromptTemplates(
@@ -317,24 +342,33 @@ async function main() {
   if (existing) {
     console.log("Existing sergio.config.json found.\n");
     const action = await ask(
-      "What to reconfigure? (all / trello / github / urls / prompts)",
+      "What to reconfigure? (all / trello / github / urls / prompts / mcp)",
       "all"
     );
 
     if (action === "all") {
-      await runFullSetup(prev);
+      await runFullSetup(prev, env);
     } else {
       await runPartialSetup(existing, action);
     }
   } else {
     console.log("No existing config found. Running full setup.\n");
-    await runFullSetup(prev);
+    await runFullSetup(prev, env);
   }
 
   closePrompts();
 }
 
-async function runFullSetup(prev: PreviousValues = {}): Promise<void> {
+async function loadMcpServersFromFile(mcpConfigPath: string): Promise<McpServersConfig> {
+  const resolvedPath = path.resolve(mcpConfigPath);
+  const raw = await fs.readFile(resolvedPath, "utf-8");
+  return parseMcpConfigDocument(raw);
+}
+
+async function runFullSetup(
+  prev: PreviousValues = {},
+  existingEnv: Record<string, string> = {}
+): Promise<void> {
   const answers = await collectSetupAnswers(prev);
 
   // Create Trello board
@@ -389,18 +423,30 @@ async function runFullSetup(prev: PreviousValues = {}): Promise<void> {
           todoReviewed: findList("Reviewed"),
           taskDevelopment: findList("Task Development") || findList("Development"),
           developing: findList("Developing"),
-          taskDeveloped: findList("Developed"),
+          taskDeveloped: findList("Ready for Review") || findList("Developed"),
         },
       };
 
       // Let user confirm or override each mapping
-      console.log("\nList mapping (press Enter to accept, or paste a different list ID):");
+      console.log("\nList mapping (press Enter to accept, or paste a list ID):");
       for (const [key, id] of Object.entries(board.lists)) {
         const listName = existingLists.find((l) => l.id === id)?.name || "(not found)";
-        const override = await ask(`  ${key} → ${listName}`, id);
+        let override = await ask(`  ${key} → ${listName}`, id);
+        // If user typed a list name instead of an ID, resolve it
+        const byName = existingLists.find((l) => l.name === override);
+        if (byName) {
+          override = byName.id;
+          console.log(`    → Resolved to ${byName.id}`);
+        }
         (board.lists as Record<string, string>)[key] = override;
       }
     }
+  }
+
+  let mcpServers: McpServersConfig | undefined;
+  if (answers.mcpConfigPath) {
+    mcpServers = await loadMcpServersFromFile(answers.mcpConfigPath);
+    console.log(`  Loaded MCP config from ${path.resolve(answers.mcpConfigPath)}`);
   }
 
   const configData: Record<string, any> = {
@@ -433,14 +479,20 @@ async function runFullSetup(prev: PreviousValues = {}): Promise<void> {
     logsDir: "logs",
     dataDir: "data",
   };
+  if (mcpServers) {
+    configData.mcpServers = mcpServers;
+  }
 
   console.log("\nWriting configuration...");
   await writeConfigFile(configData);
+  const mcpEnvKeys = collectMcpEnvPlaceholders(mcpServers);
   await writeEnvFile(
     answers.anthropicApiKey,
     answers.trelloApiKey,
     answers.trelloToken,
-    answers.githubToken
+    answers.githubToken,
+    existingEnv,
+    mcpEnvKeys
   );
   await ensurePromptTemplates(answers.revisionTemplate, answers.developmentTemplate);
 
@@ -504,9 +556,24 @@ async function runPartialSetup(
       };
       break;
     }
+    case "mcp": {
+      const mcpPath = await ask("MCP config file path (leave blank to remove)", "");
+      if (!mcpPath) {
+        delete updated.mcpServers;
+      } else {
+        updated.mcpServers = await loadMcpServersFromFile(mcpPath);
+        const env = await loadExistingEnv();
+        const mcpEnvKeys = collectMcpEnvPlaceholders(updated.mcpServers);
+        for (const key of mcpEnvKeys) {
+          if (!(key in env)) env[key] = "";
+        }
+        await writeRawEnv(env);
+      }
+      break;
+    }
     default:
       console.log(`Unknown section: ${section}. Running full setup.`);
-      await runFullSetup();
+      await runFullSetup({}, await loadExistingEnv());
       return;
   }
 
