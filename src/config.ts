@@ -119,7 +119,10 @@ function validateConfig(cfg: Config): void {
     errors.push("trello.boardId is required");
   }
 
-  const requiredLists = ["todo", "taskRevision", "reviewing", "todoReviewed"] as const;
+  const requiredLists = [
+    "todo", "taskRevision", "reviewing", "todoReviewed",
+    "taskDevelopment", "developing", "taskDeveloped",
+  ] as const;
   for (const key of requiredLists) {
     if (!cfg.trello.lists[key]) {
       errors.push(`trello.lists.${key} is required`);

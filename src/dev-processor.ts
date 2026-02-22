@@ -119,6 +119,13 @@ async function createWorktree(
 ): Promise<void> {
   // Fetch latest from remote
   await runAsClaudeUser(["git", "fetch", config.baseRemote], repoDir, 60_000);
+  // Delete stale branch from a previous failed run (if any)
+  try {
+    await runAsClaudeUser(["git", "branch", "-D", branchName], repoDir, 30_000);
+    log.info(`  Deleted stale branch ${branchName}`);
+  } catch {
+    // Branch doesn't exist — expected on first run
+  }
   // Create worktree with new branch based on configured remote/branch
   await runAsClaudeUser(
     ["git", "worktree", "add", "-b", branchName, worktreeDir, `${config.baseRemote}/${config.baseBranch}`],
@@ -130,7 +137,8 @@ async function createWorktree(
 
 async function cleanupWorktree(
   repoDir: string,
-  worktreeDir: string
+  worktreeDir: string,
+  branchName: string
 ): Promise<void> {
   try {
     await runAsClaudeUser(
@@ -146,6 +154,12 @@ async function cleanupWorktree(
     } catch (e) {
       log.error(`  Failed to clean up worktree ${worktreeDir}:`, e);
     }
+  }
+  // Delete the dev branch so it doesn't block future runs for this card
+  try {
+    await runAsClaudeUser(["git", "branch", "-D", branchName], repoDir, 30_000);
+  } catch {
+    // Branch may already be gone or was pushed — not critical
   }
   log.info(`  Cleaned up worktree ${worktreeDir}`);
 }
@@ -389,7 +403,7 @@ export async function processDevCard(
     }
   } finally {
     // Always clean up worktree and downloaded attachments
-    await cleanupWorktree(config.repoDir, worktreeDir);
+    await cleanupWorktree(config.repoDir, worktreeDir, branchName);
     await cleanupAttachments(attachDir);
   }
 }
