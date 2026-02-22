@@ -117,7 +117,7 @@ function ensureClaudeUser(): void {
   // Ensure the current user can sudo as claudeuser without a password
   const sudoersFile = "/etc/sudoers.d/sergio";
   const currentUser = process.env.USER || "sergio";
-  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD:SETENV: ALL`;
+  const sudoersRule = `${currentUser} ALL=(claudeuser) NOPASSWD: ALL`;
   try {
     const existing = execFileSync("sudo", ["cat", sudoersFile], { encoding: "utf-8" }).trim();
     if (existing === sudoersRule) {
@@ -136,6 +136,28 @@ function ensureClaudeUser(): void {
     console.error("  Failed to create sudoers rule. Please run manually:");
     console.error(`  echo '${sudoersRule}' | sudo tee ${sudoersFile}`);
     console.error(`  sudo chmod 0440 ${sudoersFile}`);
+  }
+
+  // Allow claudeuser to work in repos owned by other users
+  try {
+    execFileSync("sudo", ["-u", "claudeuser", "git", "config", "--global", "safe.directory", "*"], { stdio: "ignore" });
+    console.log("  git safe.directory configured");
+  } catch {
+    console.error("  Failed to set git safe.directory for claudeuser");
+  }
+
+  // Set up git credential helper so claudeuser can push via HTTPS using GITHUB_TOKEN
+  const credentialScript = "/home/claudeuser/git-credential-token.sh";
+  try {
+    execFileSync("bash", ["-c", [
+      `echo '#!/bin/bash\necho "username=x-access-token"\necho "password=\\$GITHUB_TOKEN"' | sudo tee ${credentialScript} > /dev/null`,
+      `sudo chmod +x ${credentialScript}`,
+      `sudo chown claudeuser:claudeuser ${credentialScript}`,
+      `sudo -u claudeuser git config --global credential.helper ${credentialScript}`,
+    ].join(" && ")], { stdio: "ignore" });
+    console.log("  git credential helper configured");
+  } catch {
+    console.error("  Failed to set up git credential helper for claudeuser");
   }
 }
 
