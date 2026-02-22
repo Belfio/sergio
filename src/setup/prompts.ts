@@ -5,6 +5,7 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
+rl.on("close", () => process.exit(0));
 
 function mask(value: string): string {
   if (value.length <= 8) return "****";
