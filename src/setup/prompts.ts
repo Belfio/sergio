@@ -43,6 +43,7 @@ export interface SetupAnswers {
   urlAllowList: string[];
   revisionTemplate: string;
   developmentTemplate: string;
+  mcpConfigPath: string;
 }
 
 export interface PreviousValues {
@@ -62,6 +63,7 @@ export interface PreviousValues {
   urlAllowList?: string[];
   revisionTemplate?: string;
   developmentTemplate?: string;
+  mcpConfigPath?: string;
 }
 
 export async function collectSetupAnswers(prev: PreviousValues = {}): Promise<SetupAnswers> {
@@ -104,6 +106,10 @@ export async function collectSetupAnswers(prev: PreviousValues = {}): Promise<Se
     "Development prompt template path",
     prev.developmentTemplate || "prompts/development.md"
   );
+  const mcpConfigPath = await ask(
+    "MCP config file path (optional, leave blank to skip)",
+    prev.mcpConfigPath || ""
+  );
 
   return {
     botName,
@@ -122,5 +128,6 @@ export async function collectSetupAnswers(prev: PreviousValues = {}): Promise<Se
     urlAllowList,
     revisionTemplate,
     developmentTemplate,
+    mcpConfigPath,
   };
 }

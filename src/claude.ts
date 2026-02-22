@@ -18,5 +18,11 @@ export async function runClaude(
     { botName: config.botName, cardContent, urlPolicy, baseBranch: config.baseBranch, baseRemote: config.baseRemote }
   );
 
-  return await runClaudeCommand(prompt, repoDir, TIMEOUT_MS, "Claude CLI");
+  return await runClaudeCommand(
+    prompt,
+    repoDir,
+    TIMEOUT_MS,
+    "Claude CLI",
+    config.mcpServers
+  );
 }

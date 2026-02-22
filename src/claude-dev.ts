@@ -18,6 +18,7 @@ export async function runClaudeDev(
     prompt,
     worktreeDir,
     config.timeouts.claudeDevMs,
-    "Claude dev CLI"
+    "Claude dev CLI",
+    config.mcpServers
   );
 }

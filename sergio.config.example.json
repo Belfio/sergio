@@ -27,10 +27,20 @@
     "revisionTemplate": "prompts/revision.md",
     "developmentTemplate": "prompts/development.md"
   },
+  "mcpServers": {
+    "google-docs": {
+      "command": "npx",
+      "args": ["-y", "google-docs-mcp"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "${GOOGLE_CLIENT_ID}",
+        "GOOGLE_CLIENT_SECRET": "${GOOGLE_CLIENT_SECRET}"
+      }
+    }
+  },
   "pipeline": {
     "devCommand": "",
     "devReadyPattern": "",
-    "testCommands": ["npm test"]
+    "testCommands": []
   },
   "timeouts": {
     "claudeDevMs": 1200000,

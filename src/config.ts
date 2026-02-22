@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { resolvePipelineConfig } from "./config-utils.js";
+import type { McpServersConfig } from "./mcp-types.js";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ export interface Config {
   pollIntervalMs: number;
   logsDir: string;
   dataDir: string;
+  mcpServers?: McpServersConfig;
 }
 
 const CONFIG_FILE = path.resolve("sergio.config.json");
@@ -106,6 +108,7 @@ function loadConfig(): Config {
     pollIntervalMs: raw.pollIntervalMs || 60_000,
     logsDir: raw.logsDir || path.resolve("logs"),
     dataDir: raw.dataDir || path.resolve("data"),
+    mcpServers: raw.mcpServers || undefined,
   };
 
   validateConfig(cfg);
