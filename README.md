@@ -13,7 +13,7 @@
 ```
 <div align="center">
 
-# 👴🏻 Sergio AI
+# Sergio AI 👴🏻
 
 ### Trello AI teammate that reviews trello cards with the Product Manager PRD and Figma designs with knowledge about your codebase, helps you making a development plan and initiates the PR on GitHub.
 Developers have AI PR reviews. Product Manager should have the same support with **Sergio**.
