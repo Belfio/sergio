@@ -69,11 +69,12 @@ function runAsClaudeUser(
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn("sudo", [
-      "-u", "claudeuser", "--", ...argv,
+      "-u", "claudeuser", "--",
+      "env", `GITHUB_TOKEN=${process.env.GITHUB_TOKEN || ""}`,
+      ...argv,
     ], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
     });
 
     let stdout = "";
