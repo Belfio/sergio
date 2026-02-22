@@ -91,6 +91,8 @@ The prompt logic lives in `prompts/revision.md`. Sergio always posts its respons
 
 **Feedback loop:** If the response isn't right, add a comment explaining what to change and move the card back to 🔍 Revision. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly.
 
+![Sergio reviewing a card](img/prd-revision.gif)
+
 ### Development pipeline
 
 ```mermaid
@@ -112,6 +114,8 @@ flowchart LR
 The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
 
 **Commit authoring:** Commits made by the development pipeline are authored as `Sergio AI <sergio-ai@noreply>` (or your custom `botName`), so they're easy to distinguish from human commits in GitHub's history. Note that PR authorship is tied to the `GITHUB_TOKEN` owner and cannot be overridden without a dedicated bot account.
+
+![Sergio creating a PR](img/pr-created.gif)
 
 
 
@@ -282,7 +286,7 @@ GITHUB_TOKEN=ghp_...
 
 ### Re-configuring
 
-Run `npm run setup` again at any time. If `sergio.config.json` exists, the wizard asks what to update — Trello board, GitHub, URL allow list, or prompts — without recreating everything.
+Run `npm run setup` again at any time. If `sergio.config.json` exists, the wizard asks what to update — Trello board, GitHub, URL allow list, prompts, or MCP config — without recreating everything.
 
 ---
 
@@ -306,6 +310,55 @@ Sergio's Claude behavior is driven by two editable Markdown templates:
 | `{{baseRemote}}` | Git remote name from config (default: `origin`) |
 
 Add your coding standards, framework conventions, or architectural constraints directly to these templates. Claude will follow them on every task.
+
+---
+
+## MCP Servers (Google Docs, Figma, etc.)
+
+Sergio can pass an MCP configuration to Claude CLI, so Claude can use external tools (for example Google Docs readers, design integrations, and other MCP-compatible services) while processing cards.
+
+Add an optional `mcpServers` block in `sergio.config.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "google-docs": {
+      "command": "npx",
+      "args": ["-y", "google-docs-mcp"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "${GOOGLE_CLIENT_ID}",
+        "GOOGLE_CLIENT_SECRET": "${GOOGLE_CLIENT_SECRET}"
+      }
+    }
+  }
+}
+```
+
+At runtime, Sergio resolves `${VAR}` values from `.env`, writes a temporary MCP config, and launches Claude CLI with `--mcp-config`.
+
+### Google Docs setup
+
+1. Create OAuth credentials in Google Cloud (client ID + client secret).
+2. Put those values in `.env`:
+   - `GOOGLE_CLIENT_ID=...`
+   - `GOOGLE_CLIENT_SECRET=...`
+3. Configure a Google Docs MCP server in `mcpServers`.
+4. Complete the MCP server's one-time auth flow (it typically stores refresh tokens locally).
+
+### Figma options
+
+- Official desktop MCP integrations usually require a local Figma Desktop app endpoint and are not suitable for headless Linux servers.
+- For server deployments, prefer MCP servers backed by the Figma REST API and access tokens.
+
+### Any other MCP server
+
+You can configure any compatible MCP server using either:
+- `type: "stdio"` with `command` + `args`
+- `type: "http"` with `url`
+
+Keep secrets in `.env` and reference them with `${VAR}` placeholders in `mcpServers.env`.
+
+> Backward compatible: if `mcpServers` is omitted, Sergio behavior is unchanged.
 
 ---
 
