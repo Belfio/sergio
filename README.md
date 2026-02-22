@@ -54,6 +54,8 @@ You have a team where a Product Manager designs and writes features with limited
 
 Sergio uses a 7-list Trello board as its interface. Cards flow left-to-right through two pipelines.
 
+**How triggering works:** Sergio polls the **🔍 Revision** and **🛠️ Development** lists every 60 seconds (configurable via `pollIntervalMs`). Drop a card in either list and Sergio picks it up on the next poll — no webhooks, no manual triggers. The **⏳ Reviewing** and **⚙️ Developing** lists are processing states managed by Sergio; you never need to move cards there yourself.
+
 ![Sergio Board](img/board.png)
 
 
@@ -91,6 +93,8 @@ The prompt logic lives in `prompts/revision.md`. Sergio always posts its respons
 
 **Feedback loop:** If the response isn't right, add a comment explaining what to change and move the card back to 🔍 Revision. Sergio re-reads the full card — including all previous comments and your feedback — and responds accordingly.
 
+> **Demo:** A card is moved to 🔍 Revision. Sergio picks it up on the next 60s poll, moves it to ⏳ Reviewing while Claude works, then posts its response as a comment and moves the card to ✅ Reviewed.
+
 ![Sergio reviewing a card](img/prd-revision.gif)
 
 ### Development pipeline
@@ -114,6 +118,8 @@ flowchart LR
 The bot polls both pipelines concurrently. Planning takes minutes. Development creates a git worktree, runs your dev environment, executes tests, and pushes to GitHub.
 
 **Commit authoring:** Commits made by the development pipeline are authored as `Sergio AI <sergio-ai@noreply>` (or your custom `botName`), so they're easy to distinguish from human commits in GitHub's history. Note that PR authorship is tied to the `GITHUB_TOKEN` owner and cannot be overridden without a dedicated bot account.
+
+> **Demo:** A card is moved to 🛠️ Development. Sergio picks it up on the next 60s poll, creates a worktree, runs Claude to implement the changes, commits, pushes, opens a draft PR, and moves the card to 🚀 Ready for Review.
 
 ![Sergio creating a PR](img/pr-created.gif)
 
