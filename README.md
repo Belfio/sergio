@@ -196,7 +196,11 @@ npm install
 # 2. Run the interactive setup wizard (have your API keys ready)
 npm run setup
 
-# 3. Start
+# 3. Allow claudeuser to access the repo (it runs as a separate user)
+chmod o+x ~
+chmod -R o+rx ~/sergio
+
+# 4. Start
 npm start
 
 ```
@@ -204,7 +208,7 @@ npm start
 ### What the setup wizard does
 
 - **Checks system dependencies** — Node, Git, [Claude CLI](https://docs.anthropic.com/en/docs/claude-code), [GitHub CLI](https://cli.github.com/) — and offers to install any that are missing
-- **Creates a `claudeuser`** system account for sandboxed Claude execution, plus a sudoers rule so `sergio` can run commands as `claudeuser` (see [Security](#security))
+- **Creates a `claudeuser`** system account for sandboxed Claude execution, plus a sudoers rule so `sergio` can run commands as `claudeuser` (see [Security](#security)). You still need to grant `claudeuser` access to the repo directory — see step 3 above.
 - **Collects your API keys** — Anthropic, Trello, GitHub
 - **Creates a Trello board** with 7 pre-configured workflow lists (or connects to an existing board)
 - **Generates config files** — `sergio.config.json` and `.env`
@@ -326,6 +330,17 @@ sergio ALL=(claudeuser) NOPASSWD: ALL
 ```
 
 This allows `sergio` to run commands as `claudeuser` without a password, while keeping the two accounts fully separate.
+
+**Filesystem access:** `claudeuser` also needs read access to the repo directory so Claude CLI can explore the codebase. The setup wizard creates the user and sudoers rule, but you must grant directory access manually:
+
+```bash
+# Let claudeuser traverse into the home dir (execute-only, can't list contents)
+chmod o+x ~
+# Let claudeuser read the repo
+chmod -R o+rx ~/sergio
+```
+
+Your `.env` file stays protected because its permissions are `600` (owner-only). Only the repo source code is exposed to `claudeuser`.
 
 ### URL allow list
 
@@ -540,6 +555,14 @@ The wizard will:
 - Generate `sergio.config.json`
 
 When it asks for `repoDir`, point it to the repo you want Sergio to work on (e.g. `~/Work/my-project`). For `worktreeBaseDir`, use something like `~/sergio-worktrees`.
+
+### Grant claudeuser access
+
+```bash
+# Let claudeuser traverse your home and read the target repo
+chmod o+x ~
+chmod -R o+rx ~/Work/my-project   # use your actual repoDir
+```
 
 ### Start
 
