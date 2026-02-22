@@ -1,5 +1,6 @@
 import { execFileSync } from "child_process";
 import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import { collectSetupAnswers, ask, closePrompts, type PreviousValues } from "./prompts.js";
 import { setupTrelloBoard, fetchBoardLists, type BoardSetupResult } from "./trello-setup.js";
@@ -135,6 +136,27 @@ function ensureClaudeUser(): void {
     console.error("  Failed to create sudoers rule. Please run manually:");
     console.error(`  echo '${sudoersRule}' | sudo tee ${sudoersFile}`);
     console.error(`  sudo chmod 0440 ${sudoersFile}`);
+  }
+}
+
+function grantClaudeUserAccess(repoDir: string): void {
+  const home = os.homedir();
+
+  // Allow claudeuser to traverse into the home directory (execute-only)
+  console.log(`  chmod o+x ${home}`);
+  try {
+    execFileSync("chmod", ["o+x", home]);
+  } catch {
+    console.error(`  Failed to chmod ${home}. Run manually: chmod o+x ${home}`);
+  }
+
+  // Allow claudeuser to read the repo directory
+  const resolved = path.resolve(repoDir);
+  console.log(`  chmod -R o+rx ${resolved}`);
+  try {
+    execFileSync("chmod", ["-R", "o+rx", resolved]);
+  } catch {
+    console.error(`  Failed to chmod ${resolved}. Run manually: chmod -R o+rx ${resolved}`);
   }
 }
 
@@ -398,6 +420,9 @@ async function runFullSetup(prev: PreviousValues = {}): Promise<void> {
     answers.githubToken
   );
   await ensurePromptTemplates(answers.revisionTemplate, answers.developmentTemplate);
+
+  console.log("\nGranting claudeuser access to repo...");
+  grantClaudeUserAccess(answers.repoDir);
 
   printSummary(configData);
 }
