@@ -90,11 +90,13 @@ export async function runClaudeCommand(
     // --dangerously-skip-permissions is required for non-interactive automation.
     // Mitigations: runs as sandboxed "claudeuser" with restricted network (firewall),
     // prompt piped via stdin (never touches disk), and no access to secrets or credentials.
+    const envVars = [
+      ...(process.env.ANTHROPIC_API_KEY ? [`ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY}`] : []),
+      ...(process.env.GITHUB_TOKEN ? [`GITHUB_TOKEN=${process.env.GITHUB_TOKEN}`] : []),
+    ];
     const child = spawn("sudo", [
       "-u", "claudeuser", "--",
-      "env",
-      `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY}`,
-      `GITHUB_TOKEN=${process.env.GITHUB_TOKEN || ""}`,
+      ...(envVars.length ? ["env", ...envVars] : []),
       "claude", "-p", "--dangerously-skip-permissions",
       ...(mcpConfigPath ? ["--mcp-config", mcpConfigPath] : []),
     ], {
