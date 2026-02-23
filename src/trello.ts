@@ -118,6 +118,17 @@ export function moveCard(cardId: string, targetListId: string): Promise<void> {
   });
 }
 
+export function updateCard(
+  cardId: string,
+  fields: { name?: string; desc?: string }
+): Promise<void> {
+  return trelloFetch(`/cards/${cardId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+}
+
 export function addComment(cardId: string, text: string): Promise<void> {
   return trelloFetch(`/cards/${cardId}/actions/comments`, {
     method: "POST",

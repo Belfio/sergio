@@ -10,6 +10,7 @@ import {
   cleanupAttachments,
   moveCard,
   addComment,
+  updateCard,
   type TrelloCard,
   type TrelloComment,
   type DownloadedAttachment,
@@ -17,6 +18,30 @@ import {
 } from "./trello.js";
 import { markCardProcessed, incrementCardAttempts, clearCardAttempts } from "./state.js";
 import { runClaude } from "./claude.js";
+
+interface CardUpdate {
+  title?: string;
+  description?: string;
+}
+
+function parseCardUpdate(output: string): { update: CardUpdate; rest: string } {
+  const match = output.match(/```CARD_UPDATE\s*\n([\s\S]*?)```/);
+  if (!match) return { update: {}, rest: output };
+
+  const block = match[1];
+  const rest = output.slice(match.index! + match[0].length).trim();
+
+  let title: string | undefined;
+  let description: string | undefined;
+
+  const titleMatch = block.match(/^TITLE:\s*(.+)$/m);
+  if (titleMatch) title = titleMatch[1].trim();
+
+  const descMatch = block.match(/DESCRIPTION:\s*\n([\s\S]*)/);
+  if (descMatch) description = descMatch[1].trim();
+
+  return { update: { title, description }, rest };
+}
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 80);
@@ -115,27 +140,39 @@ export async function processCard(
     const plan = await runClaude(filepath, config.repoDir);
     log.info(`  ${config.botName} produced plan (${plan.length} chars)`);
 
-    // 6. Post plan as comment on the Trello card (truncated for Trello limit)
+    // 6. Parse card update block and update card description/title
+    const { update, rest: commentBody } = parseCardUpdate(plan);
+    const cardFields: { name?: string; desc?: string } = {};
+    if (update.title) cardFields.name = update.title;
+    if (update.description) cardFields.desc = update.description;
+
+    if (Object.keys(cardFields).length > 0) {
+      await updateCard(card.id, cardFields);
+      log.info(`  Updated card${cardFields.name ? ` title="${cardFields.name}"` : ""}${cardFields.desc ? " + description" : ""}`);
+    }
+
+    // 7. Post the remaining plan as comment (truncated for Trello limit)
     const MAX_COMMENT_LENGTH = 15000;
-    if (plan.length > MAX_COMMENT_LENGTH) {
+    const commentText = commentBody || plan;
+    if (commentText.length > MAX_COMMENT_LENGTH) {
       const planFilename = `${card.id}-plan.txt`;
       const planFilepath = path.join(config.logsDir, planFilename);
-      await fs.writeFile(planFilepath, plan);
-      log.info(`  Plan too long (${plan.length} chars), saved to ${planFilename}`);
+      await fs.writeFile(planFilepath, commentText);
+      log.info(`  Plan too long (${commentText.length} chars), saved to ${planFilename}`);
 
-      const truncated = plan.slice(0, MAX_COMMENT_LENGTH) +
+      const truncated = commentText.slice(0, MAX_COMMENT_LENGTH) +
         "\n\n... (plan truncated — full plan saved to logs)";
       await addComment(card.id, truncated);
     } else {
-      await addComment(card.id, plan);
+      await addComment(card.id, commentText);
     }
     log.info(`  Posted plan as comment on card`);
 
-    // 7. Move card to reviewed list
+    // 8. Move card to reviewed list
     await moveCard(card.id, ctx.destListId);
     log.info(`  Moved to reviewed list`);
 
-    // 8. Mark as processed and clear attempts
+    // 9. Mark as processed and clear attempts
     await markCardProcessed(card.id);
     await clearCardAttempts(card.id);
   } catch (err) {
