@@ -278,13 +278,48 @@ async function gitCommitAndPush(
   return true;
 }
 
+async function getChangedFiles(worktreeDir: string): Promise<string[]> {
+  const { stdout } = await runAsClaudeUser(
+    ["git", "diff", "--name-only", `${config.baseRemote}/${config.baseBranch}...HEAD`],
+    worktreeDir,
+    30_000
+  );
+  return stdout.trim().split("\n").filter(Boolean);
+}
+
+function buildPrBody(card: TrelloCard, changedFiles: string[]): string {
+  const lines: string[] = [];
+
+  // Use the structured card description (set during revision)
+  if (card.desc) {
+    lines.push(card.desc);
+  }
+
+  lines.push("");
+  lines.push("## Files changed");
+  if (changedFiles.length > 0) {
+    for (const f of changedFiles) {
+      lines.push(`- \`${f}\``);
+    }
+  } else {
+    lines.push("_(none)_");
+  }
+
+  lines.push("");
+  lines.push(`## Trello`);
+  lines.push(card.url);
+
+  return lines.join("\n");
+}
+
 async function createPullRequest(
   worktreeDir: string,
   branchName: string,
   card: TrelloCard
 ): Promise<string> {
+  const changedFiles = await getChangedFiles(worktreeDir);
   const title = card.name;
-  const body = `Trello: ${card.url}`;
+  const body = buildPrBody(card, changedFiles);
   const { stdout } = await runAsClaudeUser(
     [
       "gh", "pr", "create", "--draft",
