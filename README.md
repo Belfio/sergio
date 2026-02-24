@@ -13,7 +13,7 @@
 ```
 <div align="center">
 
-# 👴🏻 Sergio AI
+# Sergio AI 👴🏻
 
 ### Trello AI teammate that reviews Trello cards against product context and your codebase, helps you create a development plan, and opens draft PRs on GitHub.
 Developers already have AI PR reviews. Product managers should have the same support with **Sergio**.
