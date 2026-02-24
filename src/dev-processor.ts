@@ -11,6 +11,7 @@ import {
   moveCard,
   addComment,
   addAttachment,
+  updateCard,
   type TrelloCard,
   type TrelloComment,
   type DownloadedAttachment,
@@ -403,9 +404,11 @@ export async function processDevCard(
       // 9. Create PR
       const prUrl = await createPullRequest(worktreeDir, branchName, card);
 
-      // 10. Attach PR URL to card
+      // 10. Attach PR URL to card and add to description
       await addAttachment(card.id, prUrl, "Pull Request");
-      log.info("  Attached PR to card");
+      const updatedDesc = (card.desc || "") + `\n\n## Pull Request\n${prUrl}`;
+      await updateCard(card.id, { desc: updatedDesc });
+      log.info("  Attached PR to card and updated description");
     }
 
     // 11. Move card to done list
